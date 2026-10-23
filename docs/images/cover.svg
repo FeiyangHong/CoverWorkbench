@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="440" viewBox="0 0 1440 440" role="img" aria-labelledby="title desc">
+  <title id="title">CoverWorkbench — Less repetition. More music.</title>
+  <desc id="desc">A lavender and mint illustration of a local music workspace, connecting lyrics, SV, Studio One and delivery.</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#f1edff"/><stop offset="1" stop-color="#e7f7f0"/></linearGradient>
+    <linearGradient id="purple" x2="1" y2="1"><stop stop-color="#9378ff"/><stop offset="1" stop-color="#6746dc"/></linearGradient>
+  </defs>
+  <rect width="1440" height="440" rx="28" fill="url(#bg)"/>
+  <circle cx="1270" cy="30" r="240" fill="#fff" opacity=".35"/>
+  <circle cx="1000" cy="490" r="240" fill="#cec3fb" opacity=".3"/>
+  <g font-family="Segoe UI,Arial,sans-serif">
+    <rect x="60" y="58" width="58" height="58" rx="18" fill="url(#purple)"/>
+    <path d="M84 97V77l20-5v20M84 83l20-5" fill="none" stroke="white" stroke-width="3"/>
+    <ellipse cx="79" cy="98" rx="6" ry="4" fill="white"/><ellipse cx="99" cy="93" rx="6" ry="4" fill="white"/>
+    <text x="136" y="95" fill="#382e57" font-size="29" font-weight="700">CoverWorkbench</text>
+    <text x="60" y="201" fill="#302645" font-size="46" font-weight="700">Less repetition.</text>
+    <text x="60" y="258" fill="#7759db" font-size="46" font-weight="700">More music.</text>
+    <text x="62" y="307" fill="#70677c" font-size="19">Your local companion for SV &amp; Studio One.</text>
+    <rect x="60" y="348" width="250" height="34" rx="17" fill="#fff" opacity=".8"/>
+    <text x="80" y="370" font-size="13" fill="#665879" letter-spacing="1.4">WINDOWS · LOCAL · MIT</text>
+    <g transform="translate(725 65)">
+      <rect x="0" y="12" width="655" height="305" rx="22" fill="#b6a8d6" opacity=".15"/>
+      <rect width="655" height="305" rx="22" fill="#fff" opacity=".95"/>
+      <circle cx="28" cy="27" r="5" fill="#c5b5f6"/><circle cx="46" cy="27" r="5" fill="#d9d1ee"/><circle cx="64" cy="27" r="5" fill="#b4dfcc"/>
+      <text x="95" y="32" fill="#8a7d9c" font-size="12" letter-spacing="1.5">LOCAL COVER STUDIO</text>
+      <path d="M24 51H631" stroke="#eee9f6"/>
+      <rect x="28" y="76" width="599" height="96" rx="12" fill="#f4f0ff"/>
+      <text x="45" y="101" fill="#8b77b2" font-size="11" letter-spacing="1.4">YOUR VOICE. YOUR EXPRESSION.</text>
+      <g stroke="#9174df" stroke-width="5" stroke-linecap="round">
+        <path d="M48 134v9m13-18v27m13-31v34m13-42v50m13-39v26m13-11v7m13-18v29m13-38v47m13-55v59m13-48v36m13-21v12m13-24v34m13-41v49m13-48v41m13-28v17m13-12v7m13-22v36m13-49v59m13-52v44m13-33v22m13-17v12m13-24v33m13-38v43m13-45v42m13-30v19m13-14v9m13-20v32m13-36v40m13-31v25m13-18v12m13-11v8m13-18v27m13-32v37m13-39v38m13-29v20m13-15v10m13-8v6m13-14v23m13-30v34m13-32v28m13-20v12m13-8v6m13-14v20"/>
+      </g>
+      <g font-size="15" font-weight="600" fill="#574766">
+        <rect x="28" y="198" width="178" height="77" rx="12" fill="#f4f0ff"/>
+        <text x="45" y="222" font-size="11" fill="#9576cb">01 / PREPARE</text><text x="45" y="250">Lyrics &amp; readings</text>
+        <rect x="238" y="198" width="178" height="77" rx="12" fill="#f4f0ff"/>
+        <text x="255" y="222" font-size="11" fill="#9576cb">02 / CREATE</text><text x="255" y="250">SV → Studio One</text>
+        <rect x="448" y="198" width="179" height="77" rx="12" fill="#eaf7ef"/>
+        <text x="465" y="222" font-size="11" fill="#659b80">03 / DELIVER</text><text x="465" y="250">Check &amp; package</text>
+        <text x="215" y="244" fill="#b5a7c7">›</text><text x="425" y="244" fill="#b5a7c7">›</text>
+      </g>
+    </g>
+  </g>
+</svg>
