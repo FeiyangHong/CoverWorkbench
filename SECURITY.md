@@ -6,4 +6,4 @@ Only use SVPs, Songs, model code and plugins you trust. Registration and parser 
 
 Local songs, media, lyrics, derived data, reports, settings and models are excluded from source control. Online lyric searches contact the selected provider when explicitly requested; optional package/model downloads also use the network. No analytics is included. Logs may contain local paths: inspect and redact them before sharing bug reports.
 
-Before a public repository is created, security reports should go privately to the maintainer through the existing project communication channel. When hosting is configured, enable private vulnerability reporting and replace this paragraph with that repository's private reporting route. Do not put exploit-ready reports, private songs or credentials into public issues.
+Private vulnerability reporting is enabled for this repository. Use [Report a vulnerability](https://github.com/FeiyangHong/CoverWorkbench/security/advisories/new) to contact the maintainer privately. Do not put exploit-ready reports, private songs or credentials into public issues.

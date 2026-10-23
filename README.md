@@ -9,6 +9,8 @@ Repository: [FeiyangHong/CoverWorkbench](https://github.com/FeiyangHong/CoverWor
 ## Quick start
 
 ```powershell
+git clone https://github.com/FeiyangHong/CoverWorkbench.git
+cd CoverWorkbench
 .\Setup.ps1
 .\Start.ps1
 ```
