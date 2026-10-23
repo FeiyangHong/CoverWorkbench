@@ -56,22 +56,7 @@ CoverWorkbench 把适合批量处理的步骤交给工具，让歌词、音符�
 
 ## 工作流程
 
-```mermaid
-flowchart LR
-    A[自己的歌曲素材] --> B[分离人声与伴奏<br/>外部工具]
-    B --> C[SV 提取音符<br/>人工校对与调声]
-    C --> D[保存 SVP]
-    D --> E[工作台<br/>读取声部并创建 Song]
-    T[自己的兼容混音模板] --> E
-    E --> F[Studio One<br/>试听、混音、渲染]
-    F --> G[工作台<br/>音频检查、字幕与交付包]
-    G --> H[人工终审与发布]
-    L[工作台<br/>歌词、读音与 SV 脚本] -.辅助.-> C
-    classDef native fill:#f0ebff,stroke:#9475df,color:#342b49
-    classDef workbench fill:#e7f6ee,stroke:#77b69b,color:#284b3d
-    class C,F native
-    class E,G,L workbench
-```
+![五步制作流程：分离素材、SV 校对调声、工作台创建混音工程、Studio One 混音、工作台检查交付](docs/images/workflow-zh.svg)
 
 已有调好的 SVP？直接从「Studio One 建工程」开始，无需重走提取与校对。
 

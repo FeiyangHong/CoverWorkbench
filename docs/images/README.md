@@ -1,6 +1,7 @@
 # README visual assets
 
 - `cover.svg`: original, code-authored brand illustration; it is not a product screenshot.
+- `workflow-zh.svg` / `workflow-en.svg`: original bilingual five-step workflow illustrations. Regenerate with `python tools/render_workflow_diagram.py`; no user data or external dependencies.
 - `workflow.png`: actual workflow UI using synthetic notes in an isolated checkout.
 - `studio-one.png`: actual inspection of the same three-track synthetic SVP. No template is registered and no Song is generated. Visible paths are normalized to `C:\CoverWorkbench` examples in the browser after inspection.
 

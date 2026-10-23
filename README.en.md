@@ -56,22 +56,7 @@ Select and apply an icon from **桌面图标 / Desktop icons** in the app. Windo
 
 ## Workflow
 
-```mermaid
-flowchart LR
-    A[Your source media] --> B[Separate vocals and backing<br/>External tool]
-    B --> C[SV note extraction<br/>Manual correction and expression]
-    C --> D[Save SVP]
-    D --> E[Workbench<br/>Inspect parts and create Song]
-    T[Your compatible mix template] --> E
-    E --> F[Studio One<br/>Audition, mix and render]
-    F --> G[Workbench<br/>Audio checks, subtitles and package]
-    G --> H[Human review and publication]
-    L[Workbench<br/>Lyrics, readings and SV scripts] -.Assist.-> C
-    classDef native fill:#f0ebff,stroke:#9475df,color:#342b49
-    classDef workbench fill:#e7f6ee,stroke:#77b69b,color:#284b3d
-    class C,F native
-    class E,G,L workbench
-```
+![Five steps: separate media, edit in SV, build a mix session, mix in Studio One, check and package](docs/images/workflow-en.svg)
 
 Already have a finished SVP? Start with the Studio One builder; there is no need to repeat extraction or correction.
 

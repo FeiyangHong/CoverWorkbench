@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="1110" viewBox="0 0 960 1110" role="img" aria-labelledby="title desc" xml:lang="en">
+<title id="title">From source to finished cover.</title>
+<desc id="desc">Prepare clean vocals → Edit, express, save SVP → Build the mix session → Audition, mix, render → Check and package</desc>
+<rect width="960" height="1110" rx="28" fill="#f6f5fa"/>
+<g font-family="Segoe UI, Microsoft YaHei, PingFang SC, Arial, sans-serif">
+<text x="40" y="46" font-size="12" fill="#8b7aa9" font-weight="600" letter-spacing="2">THE COVER WORKFLOW</text>
+<text x="40" y="91" font-size="34" fill="#30283f" font-weight="700">From source to finished cover.</text>
+<text x="40" y="125" font-size="19" fill="#625e73" font-weight="400">Create in familiar tools. Let the workbench handle repetition.</text>
+<rect x="40" y="161" width="880" height="146" rx="18" fill="#eae6f0" opacity=".5"/>
+<rect x="40" y="158" width="880" height="146" rx="18" fill="white" stroke="#e6e1ee"/>
+<rect x="64" y="182" width="44" height="44" rx="14" fill="#eef0f5"/>
+<text x="73" y="211" font-size="21" fill="#647087" font-weight="700">01</text>
+<text x="130" y="188" font-size="12" fill="#647087" font-weight="700" letter-spacing="1.3">EXTERNAL TOOLS</text>
+<text x="130" y="222" font-size="26" fill="#332c43" font-weight="650">Prepare clean vocals</text>
+<text x="130" y="256" font-size="18" fill="#625e73" font-weight="400">Separate your source into lead vocals,</text>
+<text x="130" y="282" font-size="18" fill="#625e73" font-weight="400">harmonies and a backing track.</text>
+<rect x="618" y="172" width="288" height="118" rx="12" fill="#f5f6f9"/>
+<text x="636" y="202" font-size="14" fill="#647087" font-weight="600">START WITH YOUR MEDIA</text>
+<text x="636" y="234" font-size="16" fill="#625e73" font-weight="400">Confirm the song version</text>
+<text x="636" y="260" font-size="16" fill="#625e73" font-weight="400">Prefer an isolated lead</text>
+<path d="M86 309v14m-4-4 4 4 4-4" stroke="#b8adc9" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="40" y="335" width="880" height="146" rx="18" fill="#eae6f0" opacity=".5"/>
+<rect x="40" y="332" width="880" height="146" rx="18" fill="white" stroke="#e6e1ee"/>
+<rect x="64" y="356" width="44" height="44" rx="14" fill="#eee8ff"/>
+<text x="73" y="385" font-size="21" fill="#7556cc" font-weight="700">02</text>
+<text x="130" y="362" font-size="12" fill="#7556cc" font-weight="700" letter-spacing="1.3">SYNTHESIZER V</text>
+<text x="130" y="396" font-size="26" fill="#332c43" font-weight="650">Edit, express, save SVP</text>
+<text x="130" y="430" font-size="18" fill="#625e73" font-weight="400">Extract notes; refine lyrics and pitch.</text>
+<text x="130" y="456" font-size="18" fill="#625e73" font-weight="400">Choose a voice and shape expression.</text>
+<rect x="618" y="346" width="288" height="118" rx="12" fill="#f7f4ff"/>
+<text x="636" y="376" font-size="14" fill="#7556cc" font-weight="600">WORKBENCH SUPPORT</text>
+<text x="636" y="408" font-size="16" fill="#625e73" font-weight="400">Prepare lyrics and readings</text>
+<text x="636" y="434" font-size="16" fill="#625e73" font-weight="400">Fill lyrics and reuse phrases</text>
+<path d="M86 483v14m-4-4 4 4 4-4" stroke="#b8adc9" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="40" y="509" width="880" height="146" rx="18" fill="#eae6f0" opacity=".5"/>
+<rect x="40" y="506" width="880" height="146" rx="18" fill="white" stroke="#e6e1ee"/>
+<rect x="64" y="530" width="44" height="44" rx="14" fill="#e0f3eb"/>
+<text x="73" y="559" font-size="21" fill="#317a61" font-weight="700">03</text>
+<text x="130" y="536" font-size="12" fill="#317a61" font-weight="700" letter-spacing="1.3">COVERWORKBENCH</text>
+<text x="130" y="570" font-size="26" fill="#332c43" font-weight="650">Build the mix session</text>
+<text x="130" y="604" font-size="18" fill="#625e73" font-weight="400">Read saved SVP parts and assign roles.</text>
+<text x="130" y="630" font-size="18" fill="#625e73" font-weight="400">Create a Song from your own template.</text>
+<rect x="618" y="520" width="288" height="118" rx="12" fill="#eff9f4"/>
+<text x="636" y="550" font-size="14" fill="#317a61" font-weight="600">YOUR LOCAL TEMPLATE</text>
+<text x="636" y="582" font-size="16" fill="#625e73" font-weight="400">Reuse effects and routing</text>
+<text x="636" y="608" font-size="16" fill="#625e73" font-weight="400">Multiple leads; harmony optional</text>
+<path d="M86 657v14m-4-4 4 4 4-4" stroke="#b8adc9" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="40" y="683" width="880" height="146" rx="18" fill="#eae6f0" opacity=".5"/>
+<rect x="40" y="680" width="880" height="146" rx="18" fill="white" stroke="#e6e1ee"/>
+<rect x="64" y="704" width="44" height="44" rx="14" fill="#eee8ff"/>
+<text x="73" y="733" font-size="21" fill="#7556cc" font-weight="700">04</text>
+<text x="130" y="710" font-size="12" fill="#7556cc" font-weight="700" letter-spacing="1.3">STUDIO ONE</text>
+<text x="130" y="744" font-size="26" fill="#332c43" font-weight="650">Audition, mix, render</text>
+<text x="130" y="778" font-size="18" fill="#625e73" font-weight="400">Balance vocals with the backing track.</text>
+<text x="130" y="804" font-size="18" fill="#625e73" font-weight="400">Check effects and export your mix.</text>
+<rect x="618" y="694" width="288" height="118" rx="12" fill="#f7f4ff"/>
+<text x="636" y="724" font-size="14" fill="#7556cc" font-weight="600">KEEP CREATIVE CONTROL</text>
+<text x="636" y="756" font-size="16" fill="#625e73" font-weight="400">Listen and adjust for each song</text>
+<text x="636" y="782" font-size="16" fill="#625e73" font-weight="400">Bring your software and plugins</text>
+<path d="M86 831v14m-4-4 4 4 4-4" stroke="#b8adc9" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="40" y="857" width="880" height="146" rx="18" fill="#eae6f0" opacity=".5"/>
+<rect x="40" y="854" width="880" height="146" rx="18" fill="white" stroke="#e6e1ee"/>
+<rect x="64" y="878" width="44" height="44" rx="14" fill="#e0f3eb"/>
+<text x="73" y="907" font-size="21" fill="#317a61" font-weight="700">05</text>
+<text x="130" y="884" font-size="12" fill="#317a61" font-weight="700" letter-spacing="1.3">COVERWORKBENCH</text>
+<text x="130" y="918" font-size="26" fill="#332c43" font-weight="650">Check and package</text>
+<text x="130" y="952" font-size="18" fill="#625e73" font-weight="400">Check loudness and peaks; collect subs.</text>
+<text x="130" y="978" font-size="18" fill="#625e73" font-weight="400">Package files or replace video audio.</text>
+<rect x="618" y="868" width="288" height="118" rx="12" fill="#eff9f4"/>
+<text x="636" y="898" font-size="14" fill="#317a61" font-weight="600">THE FINAL LISTEN IS YOURS</text>
+<text x="636" y="930" font-size="16" fill="#625e73" font-weight="400">Review sound and picture</text>
+<text x="636" y="956" font-size="16" fill="#625e73" font-weight="400">Publish when you are ready</text>
+<circle cx="48" cy="1040" r="5" fill="#997be3"/>
+<text x="63" y="1046" font-size="15" fill="#625e73" font-weight="400">Creative tools</text>
+<circle cx="220" cy="1040" r="5" fill="#72b59a"/>
+<text x="235" y="1046" font-size="15" fill="#625e73" font-weight="400">Workbench</text>
+<text x="40" y="1082" font-size="18" fill="#766289" font-weight="600">Already have a finished SVP? Start at step 03.</text>
+<text x="778" y="1082" font-size="14" fill="#9b90aa" font-weight="600">CoverWorkbench</text>
+</g></svg>
