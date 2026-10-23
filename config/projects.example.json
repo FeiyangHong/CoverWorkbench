@@ -1,0 +1,11 @@
+[
+  {
+    "id": "demo",
+    "title": "Demo Song",
+    "artist": "Demo Artist",
+    "language": "ja",
+    "duration": 180.0,
+    "pilot": "C:/CoverWorkbenchProjects/demo/CoverWorkbenchPilot",
+    "selectedVersion": "demo.svp"
+  }
+]

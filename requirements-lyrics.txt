@@ -1,0 +1,2 @@
+# Optional Japanese reading/romaji support. The core server uses only stdlib.
+pykakasi==2.3.0

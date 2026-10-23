@@ -1,0 +1,13 @@
+{
+  "name": "coverworkbench-dev",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Optional browser tests for CoverWorkbench; not required to run the workbench",
+  "license": "MIT",
+  "scripts": {
+    "test:portable": "python tests/portable-smoke.py --browser"
+  },
+  "devDependencies": {
+    "playwright": "1.58.2"
+  }
+}

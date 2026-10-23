@@ -1,0 +1,29 @@
+{
+  "default": "cw-signature",
+  "variants": [
+    {
+      "id": "cw-signature",
+      "name": "Signature Note"
+    },
+    {
+      "id": "cw-vocal",
+      "name": "Vocal Wave"
+    },
+    {
+      "id": "cw-studio",
+      "name": "Studio Layers"
+    }
+  ],
+  "sizes": [
+    16,
+    20,
+    24,
+    32,
+    40,
+    48,
+    64,
+    96,
+    128,
+    256
+  ]
+}

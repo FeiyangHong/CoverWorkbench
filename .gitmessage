@@ -1,0 +1,7 @@
+# [TYPE]: Describe the actual change in English
+#
+# Types: FEAT FIX DOCS STYLE REFACTOR PERF TEST BUILD CI CHORE REVERT
+# Example: [FIX]: Preserve existing mix sessions when creating versions
+# Example: [DOCS]: Explain setup and local data backups
+#
+# Explain the motivation, behavior and validation in the body when useful.

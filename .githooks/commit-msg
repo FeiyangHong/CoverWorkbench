@@ -1,0 +1,13 @@
+#!/bin/sh
+# No Python/Node dependencies: runs with Git for Windows' bundled shell.
+subject=$(head -n 1 "$1" | tr -d '\r')
+if printf '%s' "$subject" | LC_ALL=C grep -q '[^ -~]'; then
+    printf '%s\n' 'Commit titles must be in English (printable ASCII).' >&2
+    exit 1
+fi
+if ! printf '%s\n' "$subject" | LC_ALL=C grep -Eq '^\[(FEAT|FIX|DOCS|STYLE|REFACTOR|PERF|TEST|BUILD|CI|CHORE|REVERT)\]: [^[:space:]].*$'; then
+    printf '%s\n' 'Invalid commit title. Use [TYPE]: description' >&2
+    printf '%s\n' 'Types: FEAT FIX DOCS STYLE REFACTOR PERF TEST BUILD CI CHORE REVERT' >&2
+    printf '%s\n' 'Example: [FIX]: Handle existing Studio One project folders' >&2
+    exit 1
+fi

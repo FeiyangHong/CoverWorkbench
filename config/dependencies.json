@@ -1,0 +1,32 @@
+{
+  "description": "Recorded local dependency versions, not an automatic installer. Download only when the associated optional feature is needed.",
+  "thirdParty": [
+    {
+      "directory": "vendor/GAME",
+      "repository": "https://github.com/openvpi/GAME",
+      "revision": "475a8ee781fe8cca980b3b12fbe6c80c768a813a",
+      "recordedVersion": "v1.0.3"
+    },
+    {
+      "directory": "vendor/whisperX",
+      "repository": "https://github.com/m-bain/whisperX",
+      "revision": "771b4a14a9486f8fd5aef18ef49e35d639523dd3"
+    }
+  ],
+  "models": [
+    {
+      "repo": "jonatasgrosman/wav2vec2-large-xlsr-53-japanese",
+      "revision": "cf031e020336460d15a417eba710bbc5bb43be9a",
+      "sha256": "4f6821dcd79770fcd4c11487c4ee5c040b3a7e1863425224014ba5ea8fbc1b67"
+    },
+    {
+      "repo": "jonatasgrosman/wav2vec2-large-xlsr-53-chinese-zh-cn",
+      "revision": "99ccb2737be22b8bb50dcfcc39ad4d567fb90cfd",
+      "sha256": "de031fd4b29e0c0667e5346450fadfe1326c89936b888b59c4ede608db763ee4"
+    },
+    {
+      "name": "GAME-1.0-small",
+      "sha256": "7dd10022a4011938843249a31d9527691376c493d13687a7fc1dec88786b9691"
+    }
+  ]
+}

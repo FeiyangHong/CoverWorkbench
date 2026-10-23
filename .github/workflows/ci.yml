@@ -1,0 +1,36 @@
+name: Clean checkout checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  portable:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        python: ['3.11', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Enable repository conventions
+        run: ./tools/SetupGit.ps1
+      - name: Check commit titles and source boundaries
+        run: |
+          python tests/git-conventions.py
+          python tools/release_check.py --for-public-release --ref HEAD
+      - name: Install browser test dependencies
+        run: |
+          npm ci
+          npx playwright install chromium
+      - name: Test relocated empty installation
+        run: python tests/portable-smoke.py --browser
+      - name: Test Windows installer and launcher
+        if: matrix.python == '3.13'
+        run: python tests/windows-launcher.py
