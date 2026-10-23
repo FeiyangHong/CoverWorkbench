@@ -15,7 +15,7 @@ Bring lyric preparation, repetitive tasks, mix-session setup and delivery into o
 [![MIT License](https://img.shields.io/badge/license-MIT-8b6ce0)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB)](https://www.python.org/downloads/windows/)
 
-[Quick start](#quick-start) · [Preview](#preview) · [Deployment](docs/Deployment.md) · [Contributing](CONTRIBUTING.md)
+[Quick start](#quick-start) · [Preview](#preview) · [Deployment](docs/Deployment.md)
 
 </div>
 
@@ -37,11 +37,11 @@ CoverWorkbench handles repeatable preparation and delivery tasks while detailed 
 
 ![Workflow desk with phrase lyrics, phrase reuse and voice preset tools](docs/images/workflow.png)
 
-### Studio One: inspect parts, assign roles, then choose your own template
+### Studio One: inspect parts, assign roles, choose a starter mix template
 
-![Studio One preparation with two leads, one harmony and a missing-template notice](docs/images/studio-one.png)
+![Studio One preparation with two leads, one harmony and the starter template effect routing](docs/images/studio-one.png)
 
-> Screenshots use an isolated, fictional **Moonlit Demo** project containing only programmatically generated `la` notes. Paths are normalized to generic examples. No real songs, personal settings or commercial plugin presets are included. These are actual UI and track-inspection results; no native synthesis or Song generation was performed. A fresh installation needs your own compatible template.
+> Screenshots use an isolated, fictional **Moonlit Demo** project containing only programmatically generated `la` notes. Paths are normalized to generic examples. No real songs or personal settings are included. These are actual UI and track-inspection results; no native synthesis or Song generation was performed. Fresh installations include two starter templates; their licensed plugins must be installed separately.
 
 <details>
 <summary>Three desktop icons for your workspace</summary>
@@ -62,7 +62,7 @@ Already have a finished SVP? Start with the Studio One builder; there is no need
 
 ## Quick start
 
-Native integrations target **Windows** and require **Python 3.11+**. The clone command below also requires Git. Alternatively, download the source ZIP from GitHub, extract it and run the setup script.
+Native integrations target **Windows** and require **Python 3.11+**.
 
 ```powershell
 git clone https://github.com/FeiyangHong/CoverWorkbench.git
@@ -73,7 +73,7 @@ cd CoverWorkbench
 
 Open <http://127.0.0.1:8765/>:
 
-1. Use **环境设置 / Environment settings** to select local tools, your Songs directory and your own mix templates.
+1. Use **环境设置 / Environment settings** to select local tools and your Songs directory. Choose a bundled starter in the Studio One page, or register your own mix template.
 2. Use **导入工程 / Import project** to select a saved SVP, title and language. You can also use the Studio One builder directly.
 3. Open the work copy in SV, edit and save before reading it from the workbench. After rendering, use the checks and delivery tools.
 
@@ -85,9 +85,22 @@ Setup creates an isolated `.venv` and an empty workspace without modifying SV, S
 
 SV scripts must be installed separately into the editor's script directory and rescanned. See **[Deployment](docs/Deployment.md)** for tool configuration, scripts, template requirements, alternatives when PowerShell scripts are blocked, and migration.
 
+## Starter mix templates
+
+A fresh installation offers these directly in the Studio One builder, without registering a Song first:
+
+| Template | Mix structure |
+| --- | --- |
+| **Studio Vocal Plate** | Three lead recipes, harmony processing, plate reverb and delay sends, routed through a vocal bus |
+| **Studio Vocal Delay** | Lead and harmony processing, plate reverb and a separate delay return; the delay return starts muted and can be enabled as needed |
+
+Both preserve the author's actual EQ, compression, de-essing, send levels and routing. Song content, lyrics, voice selection, personal paths and device metadata have been removed. Voices and performance come from your imported SVP.
+
+Install your own licensed **Synthesizer V Studio Pro** and **FabFilter Pro-Q 3, Pro-C 2, Pro-DS, Pro-R 2 and Timeless 3**. SV2 still needs local host configuration in Environment settings. Audition and adjust levels and effects for each new song. See the [template guide](assets/studio-one/README.md).
+
 ## Before you start
 
-- **Bring your own software and materials.** Songs, lyric libraries, voice banks, model weights, commercial plugins and captured plugin presets are not bundled. Install FFmpeg/FFprobe yourself. Online lyric searches send requests to the provider.
+- **Bring your own software and materials.** Songs, lyric libraries, voice banks, model weights and commercial plugin binaries are not bundled. The starter templates contain sanitized effect parameters and routing only. Install FFmpeg/FFprobe yourself. Online lyric searches send requests to the provider.
 - **Studio One templates have structural requirements.** The builder supports compatible Studio One 7 templates, constant tempo, a single meter and 1–16 vocal outputs. Multiple leads and songs without harmony are supported; the template itself still needs a harmony recipe. Arbitrary Song layouts are not guaranteed to work.
 - **SV2 needs additional local host state.** Configure your own SV2 host in Environment settings before generating SV2 Songs on a fresh installation. See the [Studio One integration guide](integrations/studio-one/README.md).
 - **Assisted results need human review.** Pitch comparisons provide diagnostic clues, not correctness scores. Lyrics, alignment, pronunciation and mix quality need checking. Experimental GAME/WhisperX scripts and models are outside the portable distribution.
@@ -95,7 +108,7 @@ SV scripts must be installed separately into the editor's script directory and r
 
 ## Files and privacy
 
-Source code is managed separately from creative work. Git ignores local settings, project indexes, song copies, lyrics, reports, models and runtime environments; back these up separately. On another computer, reinstall dependencies, register templates and re-import materials. Existing absolute references are not automatically migrated.
+Source code is managed separately from creative work. Git ignores local settings, project indexes, song copies, lyrics, reports, models and runtime environments; back these up separately. On another computer, reinstall dependencies, select a starter or register your own templates, and re-import materials. Existing absolute references are not automatically migrated.
 
 | Directory | Contents |
 | --- | --- |
@@ -105,20 +118,6 @@ Source code is managed separately from creative work. Git ignores local settings
 | `docs/`, `assets/` | Documentation, demo screenshots and product icons |
 | `config/` | Public example configuration; personal settings are ignored |
 | `projects/`, `data/`, `runtime/` | Local creative and runtime data, excluded from Git |
-
-## Contributing
-
-Read [CONTRIBUTING](CONTRIBUTING.md) and the [Git workflow](docs/GitWorkflow.md). Commit titles use English, for example `[FEAT]: Add ...`, `[FIX]: Correct ...` and `[DOCS]: Update ...`. Run `tools/SetupGit.ps1` in each clone to install the conventions.
-
-```powershell
-python tests/portable-smoke.py
-python tests/git-conventions.py
-python tools/release_check.py
-```
-
-CI uses Windows, Python 3.11/3.13 and synthetic fixtures to exercise clean installation and browser flows. Native synthesis quality and third-party plugins require separate checks. The badge above links to live run records.
-
-To refresh UI screenshots without personal projects, follow the [isolated capture instructions](docs/images/README.md).
 
 ## License
 

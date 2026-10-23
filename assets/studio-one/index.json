@@ -1,0 +1,59 @@
+[
+  {
+    "id": "studio-vocal-plate",
+    "name": "Studio Vocal Plate",
+    "bundle": "studio-vocal-plate.cwmix",
+    "sha256": "bc0c233b6a565948d6dbced1659b72fd28498b33159bb6606fae52dff71bddce",
+    "requiredPlugins": [
+      "FabFilter Pro-Q 3",
+      "FabFilter Pro-C 2",
+      "FabFilter Pro-DS",
+      "FabFilter Pro-R 2",
+      "FabFilter Timeless 3"
+    ],
+    "effectComponents": [
+      "751911fdf6c04bf4397fb777b9f479b4e3dd558ba17a5fe5c3d38f6c6c3380a1",
+      "39f6439198616d9a42335489423c222dd0dd745c5a7c76755359fd06bbe6b8c7",
+      "169c8e633f5bb978959186c5233dc75b56385a3c66aa6a1481404d2884cc6036",
+      "747167af81e014dad8de85151ded22d953cd556201eae98320dfcca4bccb4db1",
+      "39f6439198616d9a42335489423c222dd0dd745c5a7c76755359fd06bbe6b8c7",
+      "169c8e633f5bb978959186c5233dc75b56385a3c66aa6a1481404d2884cc6036",
+      "854cc66c951cec4549294e401a144cb40175c08816edfc8a8abf323871d58dbe",
+      "39f6439198616d9a42335489423c222dd0dd745c5a7c76755359fd06bbe6b8c7",
+      "169c8e633f5bb978959186c5233dc75b56385a3c66aa6a1481404d2884cc6036",
+      "a7b60a9c9914552c792420d254bd24a953f68bcdd0fd63014713c5634466b942",
+      "39f6439198616d9a42335489423c222dd0dd745c5a7c76755359fd06bbe6b8c7",
+      "169c8e633f5bb978959186c5233dc75b56385a3c66aa6a1481404d2884cc6036",
+      "33c3823a21676fd4ddd2609be97eec8f9831a1171fb7163b4488858bb2f9b954",
+      "d1d03445b71d6b88c9b7072c503434df35b005763600e629fd073fe2602e36ba",
+      "d77c0255c565497258067e934b3bc2fabb94edf93630cca1856bd55adaefa502"
+    ],
+    "warnings": []
+  },
+  {
+    "id": "studio-vocal-delay",
+    "name": "Studio Vocal Delay",
+    "bundle": "studio-vocal-delay.cwmix",
+    "sha256": "6168b4cc3b33af00851f03f7f40f44de93a098cea07cee125cbc189883fb7b71",
+    "requiredPlugins": [
+      "FabFilter Pro-Q 3",
+      "FabFilter Pro-C 2",
+      "FabFilter Pro-DS",
+      "FabFilter Pro-R 2",
+      "FabFilter Timeless 3"
+    ],
+    "effectComponents": [
+      "c2578ebd766c3ce208a6c0f749b28c49466fa304443d71ff57713841c2d96eac",
+      "1fcf57448e2309e77540954f78a9702a0b60ac35913a8b723b44cc468957689b",
+      "60c90c0903eb2e8bae5ad6b7048564baef038d1c501b1d30f1e9dfc7118e1b0e",
+      "39f6439198616d9a42335489423c222dd0dd745c5a7c76755359fd06bbe6b8c7",
+      "169c8e633f5bb978959186c5233dc75b56385a3c66aa6a1481404d2884cc6036",
+      "27d3b1d97d7d456e3c1ad5d6afe8f18e6ed7348a9793fdb1454953cfc6e56424",
+      "a08418c468073fa114e3e1d8056bcfcf66e7f432e83bc9a11d8e864a0e03856a",
+      "63029dba7b2a4cf10aecbef576260b4a67fba32476b5cb85e44b02decb4d7a82"
+    ],
+    "warnings": [
+      "Vocal Delay 返回默认静音；需要时自行启用。"
+    ]
+  }
+]

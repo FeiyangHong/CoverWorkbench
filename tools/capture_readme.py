@@ -72,7 +72,7 @@ def main():
                     raise RuntimeError('Demo server timed out')
                 assert Path(health['root']) == dest
                 assert request('/api/projects') == []
-                assert request('/api/daw/status')['templates'] == []
+                assert {t['id'] for t in request('/api/daw/status')['templates']} == {'studio-vocal-plate', 'studio-vocal-delay'}
                 request('/api/project-import/new', {'svp': str(source), 'title': 'Moonlit Demo',
                                                    'artist': 'Synthetic example', 'language': 'en'})
                 subprocess.run(['node', str(ROOT / 'tools/capture_readme.cjs'), base, str(output)],

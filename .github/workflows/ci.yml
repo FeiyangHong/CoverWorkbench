@@ -24,6 +24,7 @@ jobs:
       - name: Check commit titles and source boundaries
         run: |
           python tests/git-conventions.py
+          python tests/starter-templates.py
           python tools/release_check.py --for-public-release --ref HEAD
       - name: Install browser test dependencies
         run: |

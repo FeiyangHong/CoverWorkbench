@@ -1,6 +1,6 @@
 # Local Studio One templates
 
-All files in this directory except this README are local-only and ignored by Git. No commercial plugin state or user Song is distributed.
+All files in this directory except this README are local-only and ignored by Git. User Songs and private host state are not distributed. Public sanitized starter mixes live separately in [assets/studio-one](../../assets/studio-one/README.md) and appear automatically in the builder.
 
 In Environment settings, register your own SV1 base Song template and capture your own SV2 host state from a saved Song. Capture accepts exactly one supported SV2 VST3 instance. It creates a unique local preset and updates `sv2-host.json`; previous registration is backed up under `runtime/sv2-host-backups`. The JSON `preset` path is relative to the workbench root.
 

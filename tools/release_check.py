@@ -4,8 +4,27 @@ import argparse
 import re
 import subprocess
 import sys
+import io
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'app'))
+from mix_bundle import validate as validate_mix_bundle
+
+
+def audit_bundle(name, raw):
+    if name not in {'assets/studio-one/studio-vocal-plate.cwmix', 'assets/studio-one/studio-vocal-delay.cwmix'}:
+        raise ValueError('Unrecognized public mix bundle')
+    validate_mix_bundle(raw)
+    with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+        for entry in archive.namelist():
+            data=archive.read(entry)
+            for encoding in ['utf-8', 'utf-16-le']:
+                text=data.decode(encoding, errors='ignore')
+                if re.search(r'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|(?:ghp_|github_pat_)[A-Za-z0-9_]{25,}|sk-proj-[A-Za-z0-9_-]{30,}',text):
+                    raise ValueError('Potential credential inside starter mix')
+                if re.search(r'[A-Za-z]:[/\\]Users[/\\](?!Public|Your|<|%)[0-9]{3,}[/\\]',text):
+                    raise ValueError('Personal home path inside starter mix')
 
 
 def main():
@@ -31,6 +50,9 @@ def main():
             continue
         if source.stat().st_size > 2_000_000:
             errors.append('Unexpected large tracked file: ' + name)
+        if p.suffix.lower() == '.cwmix':
+            try:audit_bundle(name, source.read_bytes())
+            except (ValueError, OSError, UnicodeError) as error:errors.append('Invalid starter mix: '+name+' ('+str(error)+')')
         try:
             text = source.read_text(encoding='utf-8-sig')
         except UnicodeError:
@@ -79,6 +101,9 @@ def audit_history(ref, require_license, blocked, private_extensions, secret):
                 if kind!='blob':errors.append('Embedded repository in history: '+name)
             if kind!='blob' or oid in seen_blobs:continue
             seen_blobs.add(oid);raw=git('cat-file','blob',oid)
+            if Path(name).suffix.lower() == '.cwmix':
+                try:audit_bundle(name, raw)
+                except (ValueError, OSError, UnicodeError) as error:errors.append('Invalid starter mix in history: '+name+' ('+str(error)+')')
             if len(raw)>2_000_000:errors.append('Large blob in history: '+name)
             try:text=raw.decode('utf-8-sig')
             except UnicodeError:continue

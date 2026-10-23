@@ -39,9 +39,9 @@
 <text x="130" y="536" font-size="12" fill="#317a61" font-weight="700" letter-spacing="1.3">COVERWORKBENCH</text>
 <text x="130" y="570" font-size="26" fill="#332c43" font-weight="650">搭好 Studio One 工程</text>
 <text x="130" y="604" font-size="18" fill="#625e73" font-weight="400">读取已保存的 SVP，分配声部，</text>
-<text x="130" y="630" font-size="18" fill="#625e73" font-weight="400">按自己的模板生成独立 Song。</text>
+<text x="130" y="630" font-size="18" fill="#625e73" font-weight="400">按所选模板生成独立 Song。</text>
 <rect x="618" y="520" width="288" height="118" rx="12" fill="#eff9f4"/>
-<text x="636" y="550" font-size="17" fill="#317a61" font-weight="600">你的本机混音模板</text>
+<text x="636" y="550" font-size="17" fill="#317a61" font-weight="600">初始模板 / 自有模板</text>
 <text x="636" y="582" font-size="18" fill="#625e73" font-weight="400">沿用效果器与路由</text>
 <text x="636" y="608" font-size="18" fill="#625e73" font-weight="400">多条主声 / 可无和声</text>
 <path d="M86 657v14m-4-4 4 4 4-4" stroke="#b8adc9" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>

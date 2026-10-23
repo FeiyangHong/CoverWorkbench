@@ -18,7 +18,7 @@ const assert=require('node:assert/strict');
   assert.equal(await page.locator('#emptyWelcome').count(),0);
   await page.locator('[data-tab=lyrics]').click();
   await page.locator('[data-tab=daw]').click();
-  await page.locator('#dawRecipe').filter({hasText:'此设备还没有混音模板'}).waitFor();
+  await page.locator('#dawRecipe').filter({hasText:'Pro-Q 3'}).waitFor();
   await page.setViewportSize({width:390,height:844});
   await page.locator('#environmentSettings').click();
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),'Mobile document overflows');

@@ -64,7 +64,7 @@ def main():
             else: raise AssertionError('Server timeout')
             assert Path(health['root']) == dest
             assert request('/api/projects') == []
-            assert request('/api/daw/status')['templates'] == []
+            assert {t['id'] for t in request('/api/daw/status')['templates']} == {'studio-vocal-plate', 'studio-vocal-delay'}
             assert request('/api/settings')['settings']['ffmpeg'] == ''
             if args.browser:
                 subprocess.run(['node', str(ROOT / 'tests/portable-ui.cjs'), base, str(source)], check=True, cwd=ROOT)

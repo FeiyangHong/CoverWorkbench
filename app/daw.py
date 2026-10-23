@@ -1,7 +1,7 @@
 """Build a separate Studio One song from a user's SVP and an existing mix template.
 
-No source project is rewritten. VST payloads are copied, never reverse-engineered
-or approximated; the SV plugin's documented external-project state is retargeted.
+No source project is rewritten. Effect DSP payloads are copied without approximation;
+public starter metadata is sanitized and the SV external-project state is retargeted.
 """
 from pathlib import Path
 import copy, hashlib, html, json, math, os, re, shutil, struct, subprocess, threading, time, uuid, zipfile
@@ -11,6 +11,7 @@ from core import ROOT, read_json, save_json, sha, parse_svp, seconds_converter, 
 
 BASE=ROOT/'projects/studio-one'
 import settings
+import starter_templates
 BUILD_INDEX=ROOT/'data/daw-build-index.json'
 BUILD_LOCK=threading.Lock()
 ROLES={'lead1':'主声 1','lead2':'主声 2','lead3':'主声 3','harmony':'和声'}
@@ -120,6 +121,8 @@ def project_source(value):
 TEMPLATE_INDEX=ROOT/'config/daw-templates.local.json'
 
 def template(pid):
+    bundled=starter_templates.resolve(pid)
+    if bundled:return bundled
     entries=read_json(TEMPLATE_INDEX) if TEMPLATE_INDEX.exists() else []
     match=next((d for d in entries if d['id']==pid),None)
     if match:return match
@@ -203,13 +206,15 @@ def recipe(c):
 def templates():
     out=[]
     custom=read_json(TEMPLATE_INDEX) if TEMPLATE_INDEX.exists() else []
-    for pid in ['hoshi','stella']+[d['id'] for d in custom]:
+    for pid in [d['id'] for d in starter_templates.entries()]+['hoshi','stella']+[d['id'] for d in custom]:
         try:
             d=template(pid)
             with zipfile.ZipFile(d['originalSong']) as z:
                 mix=xml(z.read('Devices/audiomixer.xml'))
-            out.append({'id':pid,'name':d.get('name', '星' if pid=='hoshi' else 'Stella'),
-                        'source':d['originalSong'],'channels':[recipe(c) for c in channels(mix)]})
+            out.append({'id':pid,'name':d.get('name', 'Local Vocal Plate' if pid=='hoshi' else 'Local Vocal Delay'),
+                        'source':d['originalSong'],'bundled':d.get('bundled',False),
+                        'requiredPlugins':d.get('requiredPlugins',[]),'warnings':d.get('warnings',[]),
+                        'channels':[recipe(c) for c in channels(mix)]})
         except (OSError,ValueError,KeyError,zipfile.BadZipFile):
             continue
     return out
@@ -450,7 +455,7 @@ def _build(body):
         if name.endswith('.vstpreset') and name!=svpreset:
             if newarchive[renames[name]]!=value:raise ValueError('效果器状态未完整保留')
             unchanged.append(name)
-    warnings=preview['warnings']+(['Stella 原工程的 Vocal Delay 返回为静音，本模板保留此状态。'] if body['template']=='stella' else [])
+    warnings=preview['warnings']+d.get('warnings',[])+(['Vocal Delay 返回默认为静音，本模板保留此状态。'] if body['template']=='stella' else [])
     result={'id':stamp,'name':slug,'folderNaming':naming,'conflictAction':conflict_action,'template':body['template'],'engine':preview['engine'],'createdAt':time.time(),'outputDir':str(base),'folder':str(dest),'song':str(song),'svp':str(svp),
             'sourceSVP':preview['svp'],'sourceSHA256':preview['sha256'],'sourceAudio':str(audio),'audioSHA256':audio_hash,
             'mapping':mapping,'duration':duration,'effectPresetsPreserved':len(unchanged),'warnings':warnings,

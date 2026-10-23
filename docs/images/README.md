@@ -3,9 +3,9 @@
 - `cover.svg`: original, code-authored brand illustration; it is not a product screenshot.
 - `workflow-zh.svg` / `workflow-en.svg`: original bilingual five-step workflow illustrations. Regenerate with `python tools/render_workflow_diagram.py`; no user data or external dependencies.
 - `workflow.png`: actual workflow UI using synthetic notes in an isolated checkout.
-- `studio-one.png`: actual inspection of the same three-track synthetic SVP. No template is registered and no Song is generated. Visible paths are normalized to `C:\CoverWorkbench` examples in the browser after inspection.
+- `studio-one.png`: actual inspection of the same three-track synthetic SVP. The bundled starter recipe is selected; no Song is generated. Visible paths are normalized to `C:\CoverWorkbench` examples in the browser after inspection.
 
-These files contain no personal songs, lyrics, settings, voice-bank data or plugin state. All synthetic notes use `la`. Screenshots demonstrate UI behavior, not native synthesis or audio quality.
+These files contain no personal songs, lyrics, settings, voice-bank data or personal plugin state. The distributed starter mix is documented separately under assets/studio-one/. All synthetic notes use `la`. Screenshots demonstrate UI behavior, not native synthesis or audio quality.
 
 ## Regenerate on Windows
 

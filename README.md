@@ -15,7 +15,7 @@
 [![MIT License](https://img.shields.io/badge/license-MIT-8b6ce0)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB)](https://www.python.org/downloads/windows/)
 
-[快速开始](#快速开始) · [界面预览](#界面预览) · [部署指南](docs/Deployment.md) · [参与开发](CONTRIBUTING.md)
+[快速开始](#快速开始) · [界面预览](#界面预览) · [部署指南](docs/Deployment.md)
 
 </div>
 
@@ -37,11 +37,11 @@ CoverWorkbench 把适合批量处理的步骤交给工具，让歌词、音符�
 
 ![流程控制台，展示整段填词、重复乐句复用和调声预设入口](docs/images/workflow.png)
 
-### Studio One：读取声部，确认角色，再选择自己的模板
+### Studio One：读取声部，确认角色，选择初始混音模板
 
-![Studio One 工程准备页，展示两条主声、一条和声及尚未注册模板的提示](docs/images/studio-one.png)
+![Studio One 工程准备页，展示两条主声、一条和声及初始模板的效果器路由](docs/images/studio-one.png)
 
-> 截图来自隔离环境中的虚构 **Moonlit Demo** 工程，仅含程序生成的 `la` 音符。路径已替换为通用示例；不包含真实歌曲、私人配置或商业插件预设。截图展示实际网页和音轨读取结果，未执行原生合成或生成 Song；新设备需要先注册自己的兼容模板。
+> 截图来自隔离环境中的虚构 **Moonlit Demo** 工程，仅含程序生成的 `la` 音符。路径已替换为通用示例；不包含真实歌曲或私人配置。截图展示实际网页和音轨读取结果，未执行原生合成或生成 Song；新设备已提供两套初始模板，仍需安装对应的正版插件。
 
 <details>
 <summary>三种桌面图标，选择你的工作台标记</summary>
@@ -62,7 +62,7 @@ CoverWorkbench 把适合批量处理的步骤交给工具，让歌词、音符�
 
 ## 快速开始
 
-支持的本机集成环境为 **Windows**，需要 **Python 3.11+**。使用下面的克隆命令还需要 Git；也可以从 GitHub 下载源码 ZIP，解压后运行安装脚本。
+支持的本机集成环境为 **Windows**，需要 **Python 3.11+**。
 
 ```powershell
 git clone https://github.com/FeiyangHong/CoverWorkbench.git
@@ -73,7 +73,7 @@ cd CoverWorkbench
 
 打开 <http://127.0.0.1:8765/>：
 
-1. 在 **环境设置** 中选择本机工具、Songs 目录与自己的混音模板。
+1. 在 **环境设置** 中选择本机工具、Songs 目录。Studio One 页面可直接选择随附的初始模板，也可注册自己的混音模板。
 2. 在 **导入工程** 中选择已保存的 SVP，填写标题与语言。也可直接使用 Studio One 建工程页。
 3. 在 SV 中打开工作副本进行创作，保存后再让工作台读取；渲染完成后进入检查与交付流程。
 
@@ -85,9 +85,22 @@ cd CoverWorkbench
 
 SV 脚本需要另外安装到对应编辑器的脚本目录并重新扫描。工具配置、脚本安装、模板要求、PowerShell 启动替代方法和换机说明见 **[部署指南](docs/Deployment.md)**。
 
+## 初始混音模板
+
+新安装即可在「Studio One 建工程」中选择，无需先准备自己的 Song：
+
+| 模板 | 混音结构 |
+| --- | --- |
+| **Studio Vocal Plate** | 三组主声处理、和声、Plate 混响与延迟发送，统一汇入人声总线 |
+| **Studio Vocal Delay** | 主声与和声处理、Plate 混响及独立延迟返回；延迟返回默认静音，按需启用 |
+
+两套模板均保留作者实际使用的 EQ、压缩、齿音、发送电平与路由，已移除歌曲内容、歌词、声库选择、个人路径与设备信息。导入新 SVP 后，声库与演唱内容来自你自己的工程。
+
+需要自行安装 **Synthesizer V Studio Pro** 和 **FabFilter Pro-Q 3、Pro-C 2、Pro-DS、Pro-R 2、Timeless 3**。使用 SV2 时，仍需在环境设置配置本机 SV2 宿主。新曲的音量与效果参数请试听后微调。详见 [模板说明](assets/studio-one/README.md)。
+
 ## 使用前了解
 
-- **软件与素材由你提供。** 仓库不附带歌曲、歌词库、声库、模型权重、商业插件或捕获的插件预设。FFmpeg／FFprobe 需要自行安装；在线搜词会向提供方发送搜索请求。
+- **软件与素材由你提供。** 仓库不附带歌曲、歌词库、声库、模型权重、商业插件程序。随附混音模板只包含清理后的效果器参数与路由。FFmpeg／FFprobe 需要自行安装；在线搜词会向提供方发送搜索请求。
 - **Studio One 模板有结构要求。** 当前支持兼容的 Studio One 7 模板、固定速度与单一拍号、1–16 路人声，可有多条主声，也可没有和声。模板本身仍需包含和声处理配置；任意 Song 布局不保证兼容。
 - **SV2 需要额外的本机宿主状态。** 新设备须在环境设置中配置自己的 SV2 宿主，之后才能生成 SV2 Song。详见 [Studio One 集成说明](integrations/studio-one/README.md)。
 - **辅助结果需要试听确认。** 音高对比只提供排查线索；歌词、对齐、发音和混音没有自动正确性保证。GAME／WhisperX 实验脚本及模型不在便携发行范围内。
@@ -95,7 +108,7 @@ SV 脚本需要另外安装到对应编辑器的脚本目录并重新扫描。�
 
 ## 文件与隐私
 
-源码和创作数据分开管理。Git 忽略本地设置、工程索引、歌曲副本、歌词、报告、模型与运行环境；这些内容需要你另外备份。换机时应重新安装依赖、注册模板并导入素材；已有绝对路径不会自动迁移。
+源码和创作数据分开管理。Git 忽略本地设置、工程索引、歌曲副本、歌词、报告、模型与运行环境；这些内容需要你另外备份。换机时应重新安装依赖、选择初始模板或注册自有模板，并导入素材；已有绝对路径不会自动迁移。
 
 | 目录 | 内容 |
 | --- | --- |
@@ -105,20 +118,6 @@ SV 脚本需要另外安装到对应编辑器的脚本目录并重新扫描。�
 | `docs/`、`assets/` | 文档、示例截图与产品图标 |
 | `config/` | 公开示例配置；个人配置被忽略 |
 | `projects/`、`data/`、`runtime/` | 本机创作与运行数据，不上传 Git |
-
-## 参与开发
-
-阅读 [贡献指南](CONTRIBUTING.md) 和 [Git 工作流](docs/GitWorkflow.md)。提交标题统一使用英文，例如 `[FEAT]: Add ...`、`[FIX]: Correct ...`、`[DOCS]: Update ...`；每个克隆运行 `tools/SetupGit.ps1` 安装约定。
-
-```powershell
-python tests/portable-smoke.py
-python tests/git-conventions.py
-python tools/release_check.py
-```
-
-CI 使用 Windows、Python 3.11／3.13 和合成数据，覆盖干净安装与浏览器流程；原生合成音质和第三方插件仍需另行验证。顶部徽章链接到实时运行记录。
-
-维护界面截图时，可按 [截图说明](docs/images/README.md) 在隔离环境中重新生成，无需使用个人项目。
 
 ## 许可证
 

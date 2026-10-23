@@ -17,7 +17,7 @@ async function loadDaw(){
 function renderDawTemplate(){
  const t=dawInfo?.templates.find(t=>t.id===$('#dawTemplate').value);if(!t)return;
  const rows=t.channels.filter(c=>c.effects.length||c.type==='AudioGroupChannel');
- $('#dawRecipe').innerHTML=rows.map(c=>`<div><strong>${escapeHTML(c.name)}</strong><span>${escapeHTML(c.effects.join(' → ')||'汇总总线')}${c.muted?' · 返回静音':''}</span><small>${escapeHTML(c.sends.map(s=>s.to+' '+s.levelDB+' dB').join(' / '))}${c.destination?' → '+escapeHTML(c.destination):''}</small></div>`).join('');
+ $('#dawRecipe').innerHTML=(t.bundled?`<p class="work-caption">初始模板 · ${escapeHTML(t.name)}<br>需安装：${escapeHTML((t.requiredPlugins||[]).join('、'))}</p>`:'')+(t.warnings||[]).map(w=>`<p class="work-caption">${escapeHTML(w)}</p>`).join('')+rows.map(c=>`<div><strong>${escapeHTML(c.name)}</strong><span>${escapeHTML(c.effects.join(' → ')||'汇总总线')}${c.muted?' · 返回静音':''}</span><small>${escapeHTML(c.sends.map(s=>s.to+' '+s.levelDB+' dB').join(' / '))}${c.destination?' → '+escapeHTML(c.destination):''}</small></div>`).join('');
 }
 function invalidateDaw(){dawScanNumber++;dawScan=null;$('#dawBuild').disabled=true;$('#dawTrackRows').innerHTML='';$('#dawScanSummary').textContent='文件路径或插件版本改变后，请重新读取。'}
 $('#dawInspect').onclick=async()=>{

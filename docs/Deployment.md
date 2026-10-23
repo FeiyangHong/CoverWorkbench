@@ -35,7 +35,9 @@ Repeat `--dest` for SV1 and SV2. Rescan scripts in SV. Do not copy the `.lua` te
 
 ## Studio One templates
 
-No original songs, voice banks, commercial plugin state or captured host templates are redistributed. Register your **own local `.song`** in Environment settings. Current support is deliberately restricted to the layout already exercised by the builder:
+Two sanitized starter mixes, **Studio Vocal Plate** and **Studio Vocal Delay**, are available immediately in the Studio One builder. Install your own licensed SV1 and FabFilter Pro-Q 3, Pro-C 2, Pro-DS, Pro-R 2 and Timeless 3. The presets contain parameter state and routing, not plugin binaries, voice banks or media. SV2 still requires your own locally captured host state. See the [starter template guide](../assets/studio-one/README.md).
+
+You can also register your **own local `.song`** in Environment settings. Current support is deliberately restricted to the layout already exercised by the builder:
 
 - A saved Studio One 7 Song with exactly one SV1 instrument (`Inst01`) and its embedded Synthesizer V VST3 preset.
 - Mixer outputs named `Lead` (or containing `主声`) and `Harmony` (or containing `和声`). Several Lead channels may supply different effect recipes. The template has a Harmony recipe even when a new song uses no harmony.
