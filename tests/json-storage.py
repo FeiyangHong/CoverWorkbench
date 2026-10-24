@@ -124,7 +124,7 @@ class StorageTests(unittest.TestCase):
         folder = self.path.parent / 'Exports' / ident
         folder.mkdir(parents=True)
         core.save_json(folder / 'job.json', {'id': ident, 'status': 'queued', 'created': 1})
-        live = {'id': ident, 'status': 'running', 'progress': 42, 'created': 1}
+        live = {'id': ident, 'project': 'Synthetic', 'folder': str(folder), 'status': 'running', 'progress': 42, 'created': 1}
         with patch.object(video_jobs.project, 'folder', return_value=self.path.parent), \
              patch.dict(video_jobs.JOBS, {ident: live}), \
              patch.object(video_jobs, 'read_json', side_effect=AssertionError('Live disk read')):

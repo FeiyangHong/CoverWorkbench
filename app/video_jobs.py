@@ -19,6 +19,7 @@ import settings
 import lifecycle
 import video_project as project
 import video_workflow
+import video_storage
 from core import read_json, save_json, sha
 
 LOCK = threading.RLock()
@@ -82,13 +83,15 @@ def update(job, **values):
 def history(ident):
     dest=project.folder(ident)
     rows=[]
+    with LOCK:
+        live={Path(j['folder']).resolve():public(j) for j in JOBS.values() if j.get('project')==ident}
     for p in list((dest/'Jobs').glob('*/job.json'))+list((dest/'Exports').glob('*/job.json')):
         try:
             # Poll live jobs in memory instead of opening the file being replaced.
-            with LOCK:
-                active=p.parent.name in JOBS
-                d=public(JOBS[p.parent.name]) if active else None
+            active=p.parent.resolve() in live
+            d=live.get(p.parent.resolve())
             if d is None: d=read_json(p)
+            d['folder']=str(p.parent.resolve())
             if not active and d['status'] in ['queued','running']:
                 d.update(status='interrupted',message='上次服务中断。输入与已完成版本保留，请重新提交。')
             rows.append(d)
@@ -137,11 +140,12 @@ def submit(ident, body):
         with LOCK:
             if sum(j['status'] in ['queued','running'] for j in JOBS.values())>=4: raise ValueError('视频队列已满，请等待或取消任务')
             jid=uuid.uuid4().hex
-            folder=project.folder(ident)/('Exports' if kind=='export' else 'Jobs')/jid
-            folder.mkdir()
+            folder,version=video_storage.reserve(project.folder(ident),kind)
             save_json(folder/'snapshot.json',doc)
             j=dict(id=jid,project=ident,kind=kind,status='queued',progress=0,stage='等待处理',message='',renderSignature=video_workflow.signature(doc),mediaSignature=video_workflow.media_signature(doc),
-                   created=time.time(),folder=str(folder),spec=spec,files=[],snapshot=doc,cancel=threading.Event())
+                   created=time.time(),folder=str(folder),version=version,spec=spec,files=[],snapshot=doc,cancel=threading.Event())
+            if kind in ['export','preview']:
+                j['outputName']=video_storage.output_name(j,'mp4' if kind=='preview' else doc['format'])
             update(j)
             JOBS[jid]=j
             POOL.submit(run,j)
@@ -308,7 +312,7 @@ def render(j):
     if not is_preview and doc['fps']!='source': vfilter.append('fps='+doc['fps'])
     ext='mp4' if is_preview else doc['format']
     partial=folder/('preview.rendering.'+ext if is_preview else 'video.rendering.'+ext)
-    output=folder/('preview.'+ext if is_preview else 'video.'+ext)
+    output=folder/j.get('outputName',video_storage.output_name(j,ext))
     args=['-i',doc['video'],'-i',doc['audio'],'-map','0:v:0','-map','1:a:0','-vf',','.join(vfilter),'-af',base,
           '-c:v','libx264','-preset','veryfast' if is_preview else 'medium','-crf',str(21 if is_preview else doc['crf']),
           '-pix_fmt','yuv420p','-fps_mode','passthrough' if is_preview or doc['fps']=='source' else 'cfr',
@@ -363,14 +367,17 @@ def run(j):
 
 
 def media(ident,jid,name):
-    if not re.fullmatch(r'[0-9a-f]{32}',jid): raise ValueError('无效任务编号')
-    if name not in ['preview.mp4','video.mp4','video.mkv','captions.ass','captions.srt','caption-timing.json','report.json','snapshot.json','analysis.json']:
+    dest,j=video_storage.locate(project.folder(ident),jid)
+    # Canonical old media URLs remain aliases after renaming an existing version.
+    aliases={}
+    output=j.get('outputName','')
+    if output and Path(output).name==output and '/' not in output and '\\' not in output:
+        aliases[('preview.' if j['kind']=='preview' else 'video.')+Path(output).suffix.lstrip('.')]=output
+    allowed=['preview.mp4','video.mp4','video.mkv','captions.ass','captions.srt','caption-timing.json','report.json','snapshot.json','analysis.json',*aliases.values()]
+    if name not in allowed:
         raise ValueError('文件不可下载')
-    for parent in ['Jobs','Exports']:
-        dest=project.folder(ident)/parent/jid
-        if (dest/'job.json').is_file():
-            j=read_json(dest/'job.json')
-            if j['status']=='completed' and name in j['files']: return dest/name
+    actual=aliases.get(name,name)
+    if j['status']=='completed' and actual in j['files']: return dest/actual
     raise ValueError('文件尚未完成')
 
 

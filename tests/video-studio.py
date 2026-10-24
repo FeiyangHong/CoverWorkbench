@@ -93,9 +93,13 @@ def main():
             doc=project.save(doc['id'],doc)
             doc=workflow.review(doc['id'],{'revision':doc['revision'],'action':'video-clock'})
             preview=wait(jobs.submit(doc['id'],{'kind':'preview','start':1,'end':3}))
+            assert Path(preview['folder']).name=='Preview 001'
+            assert jobs.media(doc['id'],preview['id'],'preview.mp4').name=='My Cover Video - Preview 001.mp4'
             assert preview['result']['sourceUnchanged'] and abs(preview['result']['output']['duration']-2)<.1
             assert workflow.checks(doc,[preview])['previewReady']
             exported=wait(jobs.submit(doc['id'],{'kind':'export'}))
+            assert Path(exported['folder']).name=='Export 002'  # Cancelled version 001 remains reserved.
+            assert jobs.media(doc['id'],exported['id'],'video.mp4').name=='My Cover Video - v002.mp4'
             assert exported['result']['loudness']['input_tp']<0
             doc.update(audioMode='gain',audioOffset=4)
             doc=project.save(doc['id'],doc)
