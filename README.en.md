@@ -28,7 +28,7 @@ CoverWorkbench handles repeatable preparation and delivery tasks while detailed 
 | Project preparation | Import a saved SVP into an original snapshot and a separate work copy | Song, language and source version |
 | Lyrics and subtitles | Import local lyrics or explicitly search, prepare optional Japanese romaji and subtitle drafts | Lyrics, readings, translation and timing |
 | Production home | Register SVP, Song, stems and final mixes, then open the corresponding native project | Edit notes, lyrics, pitch, voice banks and expression in SV |
-| Source separation | Launch, open or optionally embed a separately installed local MSST service | Model selection and stem audition |
+| Source separation | Run the installed MSST Python API, archive stems and register vocals/lead/harmony/backing automatically | Model selection and stem audition |
 | Studio One setup | Build an independent Song from a compatible local template, mapping vocal outputs and preserving effects and routing | Template choice and mix adjustments for the new song |
 | Mixing reference | Find controls by sound goal, with clear control maps, cropped references and reverb/delay/EQ A/B demos | Audition and adjust in Studio One |
 | Video production | [Link each song to its video, carry over its final mix and saved bilingual captions, preview and export independent versions](docs/VideoStudio.md) | Timing, translation and final visual checks |
@@ -152,6 +152,10 @@ The video workspace includes six-step readiness checks, recorded caption clocks 
 
 ## Production home and MSST
 
-The project home offers four handoffs: separate stems, edit in native SV, mix in Studio One, and finish the associated video. Register files once through **管理文件路径**. The **素材分离** page can launch a user-configured Windows MSST EXE/shortcut, open its localhost URL, or embed it on request. MSST and its models remain separately installed; closing the workbench does not close the MSST process.
+The project home offers four handoffs: separate stems, edit in native SV, mix in Studio One, and finish the associated video. Register files once through **管理文件路径**. The **素材分离** page can launch a user-configured Windows MSST EXE/shortcut, open its localhost URL, or embed it automatically when ready (enabled by default). MSST and its models remain separately installed; closing the workbench does not close the MSST process.
 
 Fine note editing stays in SV; final captions stay in Video Studio. Legacy review, model comparison, SV remote controls and music-side caption drafts are hidden unless explicitly enabled under **更多工具与历史功能**. Normal use does not poll the SV live bridge. See the [Chinese production guide](docs/Production.md).
+
+New songs use readable folders directly under `projects/Artist - Song/`, without an intermediate songs folder or generated-ID directory names. Source-first creation, two-stage separation, lyrics, project-context DAW builds and linked video outputs share this root. Existing creative documents and media remain in place; only future workbench outputs are redirected. Standalone MSST webpage jobs require explicit registration. See [Production guide (Chinese)](docs/Production.md) for supported model mappings, cancellation and deployment.
+
+Start from original audio, an empty song workspace, or an existing SVP. Big7 is the default first step; optionally run karaoke on full vocals or the original recording. Readable stem names and versioned SV1/SV2 starter sessions keep handoffs organized. Note extraction and voice selection remain in Synthesizer V; see the [production guide](docs/Production.md).

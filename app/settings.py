@@ -14,7 +14,7 @@ DEFAULTS = {
     'ffmpeg': '', 'ffprobe': '', 'studioOne': '',
     'songsDirectory': str(Path.home() / 'Documents/Studio One/Songs'),
     'lyricCache': str(Path(os.environ.get('APPDATA', str(Path.home() / '.config'))) / 'MusicLyricApp/cache'),
-    'msstUrl': 'http://127.0.0.1:7860', 'msstLauncher': '',
+    'msstUrl': 'http://127.0.0.1:7860', 'msstLauncher': '', 'msstDirectory': '', 'msstPython': '',
 }
 
 
@@ -49,15 +49,17 @@ def save(body):
             from separation import local_url
             values[key] = local_url(value)
             continue
-        if key == 'msstLauncher' and value.startswith(('\\\\', '//')):
+        if key in ['msstLauncher', 'msstDirectory', 'msstPython'] and value.startswith(('\\\\', '//')):
             raise ValueError('请选择本机已安装的 MSST 启动程序')
         if value and not Path(value).is_absolute():
             raise ValueError('Use an absolute path, or leave the field empty for automatic detection')
-        if value and key in ['ffmpeg', 'ffprobe', 'studioOne']:
+        if value and key in ['ffmpeg', 'ffprobe', 'studioOne', 'msstPython']:
             if not Path(value).is_file() or (os.name == 'nt' and Path(value).suffix.lower() != '.exe'):
                 raise ValueError('Select an existing executable: ' + key)
         if value and key == 'msstLauncher' and (not Path(value).is_file() or Path(value).suffix.lower() not in {'.exe', '.lnk'}):
             raise ValueError('请选择已安装 MSST 的 .exe 或桌面 .lnk 快捷方式')
+        if value and key == 'msstDirectory' and not Path(value).is_dir():
+            raise ValueError('请选择 MSST 安装目录')
         values[key] = value
     with LOCK:
         result = {**load(), **values}

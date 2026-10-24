@@ -305,6 +305,13 @@ def build(body):
 
 def _build(body):
     preview=inspect(body)
+    music_project = None
+    if body.get('musicId'):
+        import project_assets, workspaces
+        music_project = project_assets.project(body['musicId'])
+        asset_baseline = {k:v['path'] for k,v in project_assets.status(body['musicId'])['assets'].items()}
+        if Path(asset_baseline['svp']).resolve() != Path(preview['svp']).resolve():
+            raise ValueError('此 SVP 与所选歌曲登记的工程不同，请先更新该歌曲的 SVP 素材路径')
     if preview['engine']=='sv2' and not (ROOT/'integrations/studio-one/sv2-host.json').exists():raise ValueError('这是 SV2 格式，尚未建立 SV2 宿主模板。请勿改扩展名或强制用 SV1 打开。')
     if body.get('sourceSHA256')!=preview['sha256']:raise ValueError('SVP 已改变或尚未扫描；请重新读取并确认音轨')
     original=read_json(preview['svp'])
@@ -330,7 +337,7 @@ def _build(body):
     # The record ID stays unique independently of the visible folder name.
     stamp=slug+'_'+time.strftime('%Y%m%d_%H%M%S')+'_'+uuid.uuid4().hex[:6]
     folder_name=slug if naming=='plain' else stamp.rsplit('_',1)[0] if naming=='timestamp' else stamp
-    base=output_base(body.get('outputDir'))
+    base=workspaces.outputs(music_project)/'studio-one' if music_project and body.get('useProjectDirectory') is True else output_base(body.get('outputDir'))
     dest=base/folder_name
     if conflict_action=='version':
         version=2
@@ -467,4 +474,8 @@ def _build(body):
     if sha(audio)!=audio_hash:raise ValueError('源伴奏在生成期间发生变化，请完成渲染后重新生成')
     index=read_json(BUILD_INDEX) if BUILD_INDEX.exists() else []
     save_json(BUILD_INDEX,[str(dest/'build.json')]+[v for v in index if Path(v).is_file()][:499])
+    if music_project:
+        result['musicId'] = music_project['id']
+        result['registrationSkipped'] = project_assets.register_generated(music_project['id'], {'song':str(song),'svp':str(svp)}, asset_baseline)
+        save_json(dest/'build.json',result)
     return result

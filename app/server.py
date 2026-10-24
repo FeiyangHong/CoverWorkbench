@@ -7,7 +7,8 @@ settings.initialize()
 from core import *
 import lyrics, live, workflow, daw, desktop, projects, native_audio, song_mix, lifecycle
 import video_project, video_jobs, video_workflow, video_captions, video_links
-import project_assets, separation
+import project_assets, separation, separation_jobs, workspaces
+import sv_starter
 live.prepare_manifest()
 
 PORT=int(os.environ.get("COVERWORKBENCH_PORT", "8765"))
@@ -37,7 +38,7 @@ def get_bundle(pid):
     bundle['subtitleChecks']=subtitle_checks(state['subtitles'],bundle['project']['duration'])
     bundle['live']=live.live_status(pid)
     bundle['liveNotes']=live.mapped(bundle['project'],bundle['parsed'],bundle['live'])
-    bundle['project']['sv2Working']=str(Path(bundle['project']['pilot'])/'working/sv2'/f'{pid}.svp')
+    bundle['project']['sv2Working']=bundle['project'].get('sv2Working') or str(Path(bundle['project']['pilot'])/'working/sv2'/f'{pid}.svp')
     bundle['lyricCandidates']=lyrics.cache_candidates(bundle['project'])
     bundle['lyricPackage']=read_json(Path(bundle['project']['pilot'])/'analysis/lyrics-current.json') if (Path(bundle['project']['pilot'])/'analysis/lyrics-current.json').exists() else None
     return bundle
@@ -115,6 +116,9 @@ class Handler(BaseHTTPRequestHandler):
             if path=='/api/projects':return self.respond(read_json(ROOT/'config/projects.json'))
             if parts[:2]==['api','music-video'] and len(parts)==3:return self.respond(video_links.overview(parts[2]))
             if parts==['api','separation']:return self.respond(separation.status())
+            if parts==['api','separation-capabilities']:return self.respond(separation_jobs.capabilities())
+            if parts[:2]==['api','separation-jobs'] and len(parts)==3:return self.respond(separation_jobs.history(parts[2]))
+            if parts[:2]==['api','workspace'] and len(parts)==3:return self.respond(workspaces.status(parts[2]))
             if parts[:2]==['api','project-assets'] and len(parts)==3:return self.respond(project_assets.status(parts[2]))
             if parts[:2]==['api','video-music'] and len(parts)==3:return self.respond(video_links.for_video(parts[2]))
             if path=='/api/desktop':return self.respond(desktop.status())
@@ -131,9 +135,9 @@ class Handler(BaseHTTPRequestHandler):
                 if role not in p['audio']:return self.respond({'error':'Audio not available'},404)
                 return self.file(p['audio'][role]['preview'])
             if parts[0]=='download' and len(parts)==3:
-                p=get_bundle(parts[1])['project'];base=Path(p['pilot'])/'exports';target=(base/parts[2]).resolve()
+                p=get_bundle(parts[1])['project'];bases={Path(p['pilot'])/'exports',workspaces.root(p)/'exports'}
                 # Export download uses basename lookup only, so URLs cannot read arbitrary paths.
-                matches=[f for f in base.rglob('*') if f.is_file() and f.name==parts[2]]
+                matches=list({f.resolve() for base in bases for f in base.rglob('*') if f.is_file() and f.name==parts[2]})
                 if len(matches)!=1:return self.respond({'error':'Export not found'},404)
                 return self.file(matches[0],True)
             p=(STATIC/(path.lstrip('/') or 'index.html')).resolve()
@@ -162,6 +166,10 @@ class Handler(BaseHTTPRequestHandler):
             if action=='project-assets':return self.respond(project_assets.save(pid,body))
             if action=='project-asset-open':return self.respond(project_assets.open_asset(pid,body))
             if action=='separation-launch':return self.respond(separation.launch())
+            if action=='separation-run':return self.respond(separation_jobs.submit(pid,body),202)
+            if action=='separation-cancel':return self.respond(separation_jobs.cancel(pid,body))
+            if action=='workspace':return self.respond(workspaces.prepare(pid,body))
+            if action=='sv-starter':return self.respond(sv_starter.create(pid,body),201)
             if action=='music-video':return self.respond(video_links.perform(pid,body))
             if action=='video-caption':return self.respond(video_captions.render(body))
             if action=='video-create':return self.respond(video_project.create(body),201)
@@ -253,12 +261,12 @@ class Handler(BaseHTTPRequestHandler):
                     mode=body.get('mode','bilingual')
                     if mode not in ['bilingual','original','translation']:raise ValueError('Invalid subtitle mode')
                     if not state['subtitles']:raise ValueError('请先生成或填写字幕')
-                    out=Path(p['pilot'])/'exports/subtitles'/f'{pid}_{mode}_{time.strftime("%Y%m%d_%H%M%S")}_{uuid.uuid4().hex[:6]}.srt'
+                    out=workspaces.outputs(p)/'exports/subtitles'/f'{pid}_{mode}_{time.strftime("%Y%m%d_%H%M%S")}_{uuid.uuid4().hex[:6]}.srt'
                     out.write_text(srt_text(state['subtitles'],mode),encoding='utf-8-sig')
                     save_json(out.with_suffix('.json'),state['subtitles'])
                     return self.respond({'file':str(out),'url':f'/download/{pid}/{out.name}'})
                 if action=='export-report':
-                    out=Path(p['pilot'])/'exports/reports'/f'{pid}_review_{time.strftime("%Y%m%d_%H%M%S")}_{uuid.uuid4().hex[:6]}.csv'
+                    out=workspaces.outputs(p)/'exports/reports'/f'{pid}_review_{time.strftime("%Y%m%d_%H%M%S")}_{uuid.uuid4().hex[:6]}.csv'
                     stream=io.StringIO();writer=csv.writer(stream);writer.writerow(['time_seconds','track','kind','note_id','status','detail'])
                     for f in bundle['flags']:writer.writerow([f['start'],f['track'],f['label'],f['noteId'],state['decisions'].get(f['id'],'pending'),f['detail']])
                     out.write_text(stream.getvalue(),encoding='utf-8-sig')
@@ -279,6 +287,7 @@ if __name__=='__main__':
         finally:
             server.server_close()
             native_audio.POOL.shutdown(wait=True)
+            separation_jobs.POOL.shutdown(wait=True)
             video_jobs.POOL.shutdown(wait=True)
             pidfile=ROOT/'runtime/server.pid'
             if pidfile.is_file() and pidfile.read_text().strip()==str(os.getpid()):

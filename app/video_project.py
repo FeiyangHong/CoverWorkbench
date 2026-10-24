@@ -44,10 +44,25 @@ def stamp(value):
 def folder(ident):
     if not isinstance(ident, str) or not re.fullmatch(r'[A-Za-z0-9 _.-]{1,90}', ident) or ident in {'.', '..'}:
         raise ValueError('无效的视频工程编号')
-    p = (BASE / ident).resolve()
-    if p.parent != BASE.resolve() or not (p / 'project.json').is_file():
+    mapping = read_json(BASE / '.folders.json') if (BASE / '.folders.json').exists() else {}
+    p = Path(mapping.get(ident, BASE / ident)).resolve()
+    if p.name != ident or not (p / 'project.json').is_file():
         raise ValueError('视频工程不存在')
     return p
+
+
+def output_folder(ident, create=False):
+    from workspaces import video_output
+    legacy = folder(ident)
+    result = video_output(ident) or legacy
+    if create:
+        for part in ['Sources', 'Jobs', 'Exports']:
+            (result / part).mkdir(parents=True, exist_ok=True)
+    return result
+
+
+def output_locations(ident):
+    return list(dict.fromkeys([output_folder(ident), folder(ident)]))
 
 
 def load(ident):
@@ -57,7 +72,9 @@ def load(ident):
 def listing():
     if not BASE.exists(): return []
     items = []
-    for path in BASE.glob('*/project.json'):
+    mapping = read_json(BASE / '.folders.json') if (BASE / '.folders.json').exists() else {}
+    paths = set(BASE.glob('*/project.json')) | {Path(p) / 'project.json' for p in mapping.values()}
+    for path in paths:
         try:
             p = read_json(path)
             items.append({k: p[k] for k in ['id', 'name', 'revision', 'updated']})
@@ -144,7 +161,7 @@ def warnings(doc, duration=None):
     return result
 
 
-def create(body, internal=None):
+def create(body, internal=None, directory=None):
     name = str(body.get('name', 'New Video')).strip()
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}', name) or name.endswith(('.', ' ')) or name.split('.')[0].upper() in {'CON','PRN','AUX','NUL',*[f'COM{i}' for i in range(1,10)],*[f'LPT{i}' for i in range(1,10)]}:
         raise ValueError('工程名请使用英文、数字、空格、下划线或连字符')
@@ -156,13 +173,20 @@ def create(body, internal=None):
         validate(doc)
     with LOCK:
         BASE.mkdir(parents=True, exist_ok=True)
-        dest = BASE / name
+        parent = Path(directory) if directory else BASE
+        parent.mkdir(parents=True, exist_ok=True)
+        known = {p['id'] for p in listing()}
+        dest = parent / name
         version = 2
-        while dest.exists(): dest = BASE / f'{name}_v{version}'; version += 1
+        while dest.exists() or dest.name in known: dest = parent / f'{name}_v{version}'; version += 1
         dest.mkdir()
         for child in ['Sources', 'History', 'Jobs', 'Exports']: (dest / child).mkdir()
         doc.update(id=dest.name, revision=1, updated=datetime.now().isoformat(timespec='seconds'))
         save_json(dest / 'project.json', doc)
+        if directory:
+            mapping = read_json(BASE / '.folders.json') if (BASE / '.folders.json').exists() else {}
+            mapping[doc['id']] = str(dest)
+            save_json(BASE / '.folders.json', mapping)
     return doc
 
 
@@ -245,7 +269,7 @@ def import_captions(ident, body):
     doc['subtitleShift']=0
     for path in [a,b]:
         if path:
-            target = folder(ident) / 'Sources' / (uuid.uuid4().hex[:8] + path.suffix.lower())
+            target = output_folder(ident, True) / 'Sources' / (uuid.uuid4().hex[:8] + path.suffix.lower())
             target.write_bytes(path.read_bytes())
     from video_workflow import timing
     return save(ident, doc,internal={'timing':timing(doc,body['clock'],'import')})
@@ -269,7 +293,7 @@ def import_legacy(body):
         for old,new in [('english_style','originalStyle'),('chinese_style','translationStyle')]:
             if row.get(old): cue[new] = {mapping[k]:v for k,v in row[old].items() if k in mapping}
         doc['cues'].append(cue)
-    snapshot = folder(doc['id']) / 'Sources/legacy_config.toml'
+    snapshot = output_folder(doc['id'], True) / 'Sources/legacy_config.toml'
     snapshot.write_bytes(path.read_bytes())
     from video_workflow import timing,file_key
     state={}

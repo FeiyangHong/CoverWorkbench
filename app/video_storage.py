@@ -7,13 +7,13 @@ from core import read_json
 PREFIXES = {'export': 'Export', 'preview': 'Preview', 'analyze': 'Analysis', 'download': 'Download'}
 
 
-def reserve(project_folder, kind):
+def reserve(project_folder, kind, minimum=1):
     prefix = PREFIXES[kind]
     parent = Path(project_folder) / ('Exports' if kind == 'export' else 'Jobs')
     parent.mkdir(exist_ok=True)
     numbers = [int(match[1]) for child in parent.iterdir()
                if (match := re.fullmatch(re.escape(prefix) + r' (\d+)', child.name))]
-    version = max(numbers, default=0) + 1
+    version = max(minimum, max(numbers, default=0) + 1)
     while True:
         target = parent / f'{prefix} {version:03}'
         try:

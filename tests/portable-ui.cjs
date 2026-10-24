@@ -11,6 +11,7 @@ const assert=require('node:assert/strict');
   await page.locator('#closeEnvironment').click();
   await require('./mix-guide.cjs')(page, process.argv[2]);
   await page.locator('#welcomeImport').click();
+  await page.locator('#importStartMode').selectOption('svp');
   await page.locator('#importProjectForm [name=svp]').fill('"'+process.argv[3]+'"');
   await page.locator('#importProjectForm [name=title]').fill('My First Cover');
   await page.locator('#importProjectForm [name=language]').selectOption('en');

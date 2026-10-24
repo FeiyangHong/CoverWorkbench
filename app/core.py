@@ -191,8 +191,9 @@ def export_revision(project,edits):
             p=float(e['pitch'])
             if not math.isfinite(p) or p!=int(p) or not 0<=p<=127:raise ValueError('音高必须为 0–127 的整数')
             n['pitch']=int(p)-shift
-    dest=Path(project['pilot'])/'exports'/'svp';dest.mkdir(parents=True,exist_ok=True)
-    d.setdefault('renderConfig',{})['destination']=str(Path(project['pilot'])/'exports'/'audio')
+    from workspaces import outputs
+    dest=outputs(project)/'exports'/'svp';dest.mkdir(parents=True,exist_ok=True)
+    d.setdefault('renderConfig',{})['destination']=str(outputs(project)/'exports'/'audio')
     out=dest/f"{project['id']}_review_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}.svp"
     save_json(out,d)
     return out

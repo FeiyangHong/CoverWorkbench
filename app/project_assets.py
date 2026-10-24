@@ -9,9 +9,9 @@ import daw
 STORE = ROOT / 'config/project-assets.local.json'
 LOCK = threading.RLock()
 AUDIO = {'.wav', '.flac', '.mp3', '.m4a', '.aif', '.aiff'}
-TYPES = {'source': AUDIO, 'lead': AUDIO, 'harmony': AUDIO, 'accompaniment': AUDIO,
+TYPES = {'source': AUDIO, 'vocals': AUDIO, 'lead': AUDIO, 'harmony': AUDIO, 'accompaniment': AUDIO,
          'mix': AUDIO, 'svp': {'.svp'}, 'song': {'.song'}}
-LABELS = dict(source='原歌曲', lead='分离主声', harmony='和声', accompaniment='伴奏', mix='成品混音', svp='SV 工程', song='Studio One 工程')
+LABELS = dict(source='原歌曲', vocals='完整人声（含和声）', lead='分离主声', harmony='和声', accompaniment='伴奏', mix='成品混音', svp='SV 工程', song='Studio One 工程')
 
 
 def project(ident):
@@ -50,7 +50,7 @@ def defaults(p):
     return paths
 
 
-AUDIO_KEYS = {'source', 'lead', 'harmony', 'accompaniment', 'mix'}
+AUDIO_KEYS = {'source', 'vocals', 'lead', 'harmony', 'accompaniment', 'mix'}
 
 
 def status(ident):
@@ -83,6 +83,25 @@ def save(ident, body):
         doc['revision'] += 1
         save_json(STORE, doc)
     return status(ident)
+
+
+def register_generated(ident, values, baseline):
+    """Commit completed outputs together; preserve any path edited during the job."""
+    project(ident)
+    validated = {k: str(daw.local(v, TYPES[k])) for k, v in values.items()}
+    with LOCK:
+        current = status(ident)['assets']
+        skipped = [k for k in validated if current[k]['path'] != baseline.get(k, '')]
+        doc = document()
+        chosen = doc['projects'].setdefault(ident, {})
+        for key, value in validated.items():
+            if key not in skipped:
+                chosen[key] = value
+        if STORE.exists():
+            save_json(STORE.with_name('project-assets.local.previous.json'), document())
+        doc['revision'] += 1
+        save_json(STORE, doc)
+    return skipped
 
 
 def open_asset(ident, body):

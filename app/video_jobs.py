@@ -81,11 +81,11 @@ def update(job, **values):
 
 
 def history(ident):
-    dest=project.folder(ident)
+    locations=project.output_locations(ident)
     rows=[]
     with LOCK:
         live={Path(j['folder']).resolve():public(j) for j in JOBS.values() if j.get('project')==ident}
-    for p in list((dest/'Jobs').glob('*/job.json'))+list((dest/'Exports').glob('*/job.json')):
+    for p in [p for dest in locations for section in ['Jobs','Exports'] for p in (dest/section).glob('*/job.json')]:
         try:
             # Poll live jobs in memory instead of opening the file being replaced.
             active=p.parent.resolve() in live
@@ -140,7 +140,8 @@ def submit(ident, body):
         with LOCK:
             if sum(j['status'] in ['queued','running'] for j in JOBS.values())>=4: raise ValueError('视频队列已满，请等待或取消任务')
             jid=uuid.uuid4().hex
-            folder,version=video_storage.reserve(project.folder(ident),kind)
+            minimum=max((int(j.get('version') or 0) for j in history(ident) if j.get('kind')==kind),default=0)+1
+            folder,version=video_storage.reserve(project.output_folder(ident,True),kind,minimum)
             save_json(folder/'snapshot.json',doc)
             j=dict(id=jid,project=ident,kind=kind,status='queued',progress=0,stage='等待处理',message='',renderSignature=video_workflow.signature(doc),mediaSignature=video_workflow.media_signature(doc),
                    created=time.time(),folder=str(folder),version=version,spec=spec,files=[],snapshot=doc,cancel=threading.Event())
@@ -367,7 +368,14 @@ def run(j):
 
 
 def media(ident,jid,name):
-    dest,j=video_storage.locate(project.folder(ident),jid)
+    for location in project.output_locations(ident):
+        try:
+            dest,j=video_storage.locate(location,jid)
+            break
+        except ValueError:
+            continue
+    else:
+        raise ValueError('任务版本不存在')
     # Canonical old media URLs remain aliases after renaming an existing version.
     aliases={}
     output=j.get('outputName','')

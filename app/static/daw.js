@@ -1,5 +1,5 @@
 'use strict';
-let dawScan=null,dawInfo=null,dawBusy=false,dawPresetProject='',dawScanNumber=0;
+let dawScan=null,dawInfo=null,dawBusy=false,dawPresetProject='',dawScanNumber=0,dawMusicId=null;
 async function loadDaw(){
  const state=await api('/api/daw/status');dawInfo=state;
  $('#dawBuildHistory').innerHTML=state.builds.slice(0,10).map(b=>`<article class="daw-history"><strong>${escapeHTML(b.name)}</strong><span>${b.engine?.toUpperCase()} · ${escapeHTML(dawInfo.templates.find(t=>t.id===b.template)?.name||b.template)} · ${b.mapping.length} 条人声</span><code>${escapeHTML(b.song)}</code><div class="daw-actions"><button class="button ghost" data-copy-song="${escapeHTML(b.song)}">复制工程路径</button><button class="button ghost" data-open-song="${escapeHTML(b.song)}">在 Studio One 打开</button><button class="button ghost" data-reveal-path="${escapeHTML(b.song)}">打开所在文件夹</button></div></article>`).join('')||'<p>生成后，这里会保留对应的 Song 路径与声部分配记录。</p>';
@@ -10,8 +10,8 @@ async function loadDaw(){
  if(state.templates.some(t=>t.id===previousTemplate))$('#dawTemplate').value=previousTemplate;
  $('#dawRecipe').textContent=state.templates.length?'':'此设备还没有混音模板。请打开环境设置，注册自己的 Studio One Song。';
  renderDawTemplate();
- initDawOutput();
- if(bundle&&dawPresetProject!==pid&&!$('#dawSVP').value){$('#dawSVP').value=bundle.project.working;$('#dawName').value=pid+'_mix';$('#dawAccompaniment').value=bundle.project.dawCopy?.assets?.find(a=>/\.(wav|flac)$/i.test(a.original))?.original||'';dawPresetProject=pid}
+ initDawOutput();setDawProjectOutput();
+ if(bundle&&dawPresetProject!==pid){const id=pid;const data=await api('/api/project-assets/'+id);if(id===pid){$('#dawSVP').value=data.assets.svp.path;$('#dawAccompaniment').value=data.assets.accompaniment.path;const ws=window.CWProjectWorkspace?.();$('#dawName').value=/^[A-Za-z][A-Za-z0-9 _-]{0,63}$/.test(bundle.project.title)?bundle.project.title:ws?.suggested||'New Song';dawMusicId=id;dawPresetProject=id;invalidateDaw();setDawProjectOutput();}}
  updateDawOutput();
 }
 function renderDawTemplate(){
@@ -36,7 +36,7 @@ async function submitDawBuild(retryBody){
  if(!dawScan||dawBusy)return;dawBusy=true;$('#dawBuild').disabled=true;$('#dawBuild').textContent='正在复制素材并生成工程…';
  try{
   const tracks=$$('.daw-track').filter(row=>row.querySelector('input').checked).map(row=>({index:Number(row.dataset.dawIndex),role:row.querySelector('select').value}));
-  const body=retryBody||{svp:dawScan.svp,engine:dawScan.engine,sourceSHA256:dawScan.sha256,tracks,name:$('#dawName').value,accompaniment:$('#dawAccompaniment').value,template:$('#dawTemplate').value,outputDir:$('#dawOutputDir').value,folderNaming:$('#dawFolderNaming').value};
+  const body=retryBody||{svp:dawScan.svp,engine:dawScan.engine,sourceSHA256:dawScan.sha256,tracks,name:$('#dawName').value,accompaniment:$('#dawAccompaniment').value,template:$('#dawTemplate').value,outputDir:$('#dawOutputDir').value,folderNaming:$('#dawFolderNaming').value,...(dawMusicId?{musicId:dawMusicId,useProjectDirectory:$('#dawOutputPreset').value==='song-project'}:{})};
   const response=await fetch('/api/daw-build/new',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const result=await response.json();
   if(response.status===409&&result.conflict){dawPendingBuild=body;showDawConflict(result.conflict);return}
@@ -45,7 +45,7 @@ async function submitDawBuild(retryBody){
   $('#copyDawResult').onclick=()=>navigator.clipboard.writeText(result.song).then(()=>toast('已复制 Song 路径')).catch(()=>toast(result.song));
   $('#dawResult').insertAdjacentHTML('beforeend',`<div class="daw-actions"><button class="button ghost" data-open-song="${escapeHTML(result.song)}">在 Studio One 打开</button><button class="button ghost" data-reveal-path="${escapeHTML(result.song)}">打开所在文件夹</button></div>`);
   wireDawOpenButtons($('#dawResult'));
-  await loadDaw();toast('Studio One 工程已另存生成');
+  await loadDaw();window.dispatchEvent(new Event('cw-project-assets-change'));toast('Studio One 工程已另存生成');
  }catch(e){toast(e.message)}finally{dawBusy=false;$('#dawBuild').disabled=(!dawScan?.canBuild||!dawInfo?.templates.length);$('#dawBuild').textContent='生成独立 Studio One 工程'}
 }
 $('#dawBuild').onclick=()=>submitDawBuild();
@@ -63,6 +63,7 @@ function dawCleanPath(value){
 let dawOutputReady=false;
 function initDawOutput(){
  if(dawOutputReady||!dawInfo?.outputOptions)return;dawOutputReady=true;
+ if(dawMusicId&&$('#dawOutputPreset').dataset.musicProject===dawMusicId&&$('#dawOutputPreset').value==='song-project'){setDawProjectOutput();return;}
  let saved;try{saved=JSON.parse(localStorage.getItem('cw.daw.output')||'null')}catch{}
  const preset=dawInfo.outputOptions.find(p=>p.id===saved?.preset);
  $('#dawOutputPreset').value=preset?.id||(saved?.path?'custom':'workbench');
@@ -78,6 +79,7 @@ function updateDawOutput(){
 }
 $('#dawOutputPreset').onchange=()=>{
  const preset=dawInfo?.outputOptions.find(p=>p.id===$('#dawOutputPreset').value);
+ if($('#dawOutputPreset').value==='song-project'){const ws=window.CWProjectWorkspace?.();if(ws?.musicId===dawMusicId)$('#dawOutputDir').value=ws.root+'\\studio-one';}
  if(preset)$('#dawOutputDir').value=preset.path;
  updateDawOutput();
 };
@@ -150,3 +152,12 @@ function changeDawSort(){
  if(dawPicker?.path)browseDawPath(dawPicker.path);
 }
 $('#dawPickerSort').onchange=changeDawSort;$('#dawPickerFoldersFirst').onchange=changeDawSort;
+
+function setDawProjectOutput(){
+ const ws=window.CWProjectWorkspace?.();if(!dawMusicId||!ws?.managed||ws.musicId!==dawMusicId)return;
+ const select=$('#dawOutputPreset');if(!select.querySelector('[value="song-project"]'))select.insertAdjacentHTML('afterbegin','<option value="song-project">本曲统一目录 · Studio One</option>');
+ if(select.dataset.musicProject!==dawMusicId){select.value='song-project';select.dataset.musicProject=dawMusicId;}
+ if(select.value==='song-project')$('#dawOutputDir').value=ws.root+'\\studio-one';
+}
+window.addEventListener('cw-music-project-loading',()=>{dawMusicId=null;delete $('#dawOutputPreset').dataset.musicProject;$('#dawOutputPreset option[value="song-project"]')?.remove();});
+$('#dawSVP').addEventListener('input',()=>{dawMusicId=null;});

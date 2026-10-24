@@ -158,7 +158,8 @@ def _enqueue(pid, body, watcher=False):
                     allowDurationMismatch=body.get('allowDurationMismatch') is True)
     if not (settings.executable('ffmpeg')).is_file():raise ValueError('FFmpeg 未找到')
     stamp=f"{pid}_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
-    out=Path(p['pilot'])/'exports'/('delivery' if kind=='delivery' else 'video')/stamp
+    from workspaces import outputs
+    out=outputs(p)/'exports'/('delivery' if kind=='delivery' else 'video')/stamp
     out.mkdir(parents=True,exist_ok=False)
     lp=Path(p['pilot'])/'analysis/lyrics-current.json'
     j={'id':stamp,'pid':pid,'kind':kind,'status':'queued','progress':0,'message':'等待执行','createdAt':time.time(),
@@ -171,6 +172,7 @@ def _enqueue(pid, body, watcher=False):
 def public(j):return copy.deepcopy({k:v for k,v in j.items() if k!='snapshot'})
 
 def status(pid):
+    from workspaces import root
     p=project(pid)
     with GUARD:
         for j in JOBS.values():
@@ -182,7 +184,7 @@ def status(pid):
         jobs=[public(j) for j in JOBS.values() if j['pid']==pid]
         return {'jobs':sorted(jobs,key=lambda j:j['createdAt'],reverse=True)[:40],
                 'watcher':copy.deepcopy(WATCH.get(pid,{'enabled':False})),
-                'renderFolder':str(Path(p['pilot'])/'exports/audio'),
+                'renderFolder':str(root(p)/'exports/audio'),
                 'defaultAudio':p['audio'].get('mix',{}).get('original',''),
                 'nativeScripts':['CW Phrase Lyrics','CW Phrase Reuse','CW Voice Presets'],
                 'presets': [{'id':f.stem.split('_',1)[1], 'svMajor':f.stem.split('_',1)[0]}
@@ -190,7 +192,8 @@ def status(pid):
                 'phrases':[f.stem[len(pid)+1:] for f in sorted((ROOT/'data/sv-phrases').glob(pid+'_*.tsv'))]}
 
 def watch_config(pid, enabled):
-    p=project(pid); folder=Path(p['pilot'])/'exports/audio';folder.mkdir(parents=True,exist_ok=True)
+    from workspaces import outputs
+    p=project(pid); folder=outputs(p)/'exports/audio';folder.mkdir(parents=True,exist_ok=True)
     with GUARD:
         # Explicit enable starts after the existing inventory; old renders are never submitted.
         WATCH[pid]={'enabled':enabled is True,'folder':str(folder),'enabledAt':time.time(),'message':'只检查启用后新增或更新的音频'}

@@ -216,7 +216,10 @@ def perform(ident, body):
             clock = {**seed, 'video': '', 'audioOffset': 0}
             seed['timing'] = timing(clock, 'audio' if seed['audio'] else 'unknown', 'music-project')
             seed['musicImport'] = {'musicId': ident, 'captionSource': source['captions']['label']}
-            target = video.create({'name': body.get('name') or overview(ident)['defaultName']}, internal=seed)
+            import workspaces
+            workspace = workspaces.registry().get(ident)
+            target = video.create({'name': body.get('name') or overview(ident)['defaultName']}, internal=seed,
+                                  directory=Path(workspace) / 'video' if workspace else None)
             rows[ident] = {'videoId': target['id'], 'audioSignature': source['audio']['signature'] if source['audio'] else None,
                            'captionSignature': source['captions']['signature'], 'audioPath': source['audioSelection'], 'updatedAt': time.time()}
             persist(rows)

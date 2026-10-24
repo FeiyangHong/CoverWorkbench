@@ -9,6 +9,7 @@ import lifecycle
 import native_audio
 import workflow
 import video_jobs
+import separation_jobs
 
 
 def main():
@@ -17,7 +18,7 @@ def main():
         result, code = lifecycle.request_exit(lifecycle.INSTANCE)
         assert code == 409 and result['operations']['Test write'] == 1
         assert not lifecycle.STOPPING
-    for jobs, kind in [(native_audio.JOBS, 'auditions'), (workflow.JOBS, 'deliveries'), (video_jobs.JOBS, 'videos')]:
+    for jobs, kind in [(native_audio.JOBS, 'auditions'), (workflow.JOBS, 'deliveries'), (video_jobs.JOBS, 'videos'), (separation_jobs.JOBS, 'separations')]:
         for state in ['queued', 'running']:
             jobs['test'] = {'status': state}
             result, code = lifecycle.request_exit(lifecycle.INSTANCE)
@@ -34,7 +35,7 @@ def main():
     release.set(); worker.join(5); assert not worker.is_alive()
     result, code = lifecycle.request_exit(lifecycle.INSTANCE)
     assert code == 202 and result['state'] == 'stopping'
-    for action in [lambda: workflow.enqueue('unused', {}), lambda: native_audio.submit({}), lambda: video_jobs.submit('unused', {})]:
+    for action in [lambda: workflow.enqueue('unused', {}), lambda: native_audio.submit({}), lambda: video_jobs.submit('unused', {}), lambda: separation_jobs.submit('unused', {})]:
         try: action()
         except lifecycle.Stopping: pass
         else: raise AssertionError('A background submission bypassed the shutdown gate')

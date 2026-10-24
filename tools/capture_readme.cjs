@@ -13,6 +13,8 @@ const path = require('node:path');
     await page.goto(process.argv[2]);
     await page.locator('#title').filter({hasText: 'Moonlit Demo'}).waitFor();
     await page.locator('#productionSVState').filter({hasText:'已登记'}).waitFor();
+    await page.locator('#workspaceRoot').filter({hasText:'Moonlit Demo'}).waitFor();
+    await page.locator('#workspaceRoot').evaluate(item=>{item.textContent='C:\\CoverWorkbench\\projects\\Moonlit Demo';});
     await page.locator('.production-file small').evaluateAll(items=>items.forEach(item=>{if(item.textContent.includes(':'))item.textContent='C:\\Music\\Moonlit Demo\\'+item.textContent.split(/[\\/]/).pop();}));
     await page.screenshot({path: path.join(process.argv[3], 'workflow.png')});
     await page.locator('[data-tab=daw]').click();

@@ -57,11 +57,12 @@ def revise(p,body):
         if str(r['romaji'])!=result['rows'][i]['romaji']:result['rows'][i]['readingSource']='user'
         result['rows'][i]['romaji']=str(r['romaji']);result['rows'][i]['translation']=str(r.get('translation',''))
     name=f"{p['id']}_reading_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
-    txt=Path(p['pilot'])/'exports/lyrics'/(name+'.txt')
+    from workspaces import outputs
+    txt=outputs(p)/'exports/lyrics'/(name+'.txt')
     txt.write_text('\n\n'.join('\n'.join(x for x in [r['original'],r['romaji'],r['translation']] if x) for r in result['rows'])+'\n',encoding='utf-8-sig')
     result['exports'][0]={'file':str(txt),'url':f"/download/{p['id']}/{txt.name}"}
     result['generatedReadings']=sum(r['readingSource']=='machine' for r in result['rows'])
-    save_json(Path(p['pilot'])/'working/lyrics'/(name+'.json'),result);save_json(Path(p['pilot'])/'analysis/lyrics-current.json',result);return result
+    save_json(outputs(p)/'working/lyrics'/(name+'.json'),result);save_json(Path(p['pilot'])/'analysis/lyrics-current.json',result);return result
 def build(p,body):
     if body.get('key'):
         d,source=get_candidate(p,body['key']);meta=public_item(d);l=d['LyricVo'];original=l.get('Lyric','');translation=l.get('TranslateLyric','');romaji=l.get('TransliterationLyric','')
@@ -97,12 +98,14 @@ def build(p,body):
         rows.append({'original':r['text'],'romaji':reading,'reading':hira,'translation':aligned(trans,r['start']),'start':r['start'],'readingSource':kind})
     if not rows:raise ValueError('没有有效歌词行，请检查源文件格式')
     for i,r in enumerate(rows):r['end']=rows[i+1]['start'] if timed and i+1<len(rows) else p['duration'] if timed else None
-    dest=Path(p['pilot'])/'working/lyrics';dest.mkdir(parents=True,exist_ok=True)
+    from workspaces import outputs
+    dest=outputs(p)/'working/lyrics';dest.mkdir(parents=True,exist_ok=True)
     rev=f"{p['id']}_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
     sourcepath=dest/(rev+'_source.json');save_json(sourcepath,{'source':source,'metadata':meta,'original':original,'translation':translation,'romaji':romaji})
     meta['cached']=source=='MusicLyricApp cache'
     result={'source':source,'metadata':meta,'rows':rows,'omittedCredits':omitted,'timed':timed,'generatedReadings':sum(r['readingSource']=='machine' for r in rows),'sourceFile':str(sourcepath),'createdAt':time.strftime('%Y-%m-%d %H:%M:%S'),'notice':'平台罗马音和机器读音均须对照演唱核对；LRC 是来源时间，不是本次声学对齐。此操作不改 SV 音符或旧对齐结果。'}
-    exp=Path(p['pilot'])/'exports/lyrics';exp.mkdir(parents=True,exist_ok=True)
+    from workspaces import outputs
+    exp=outputs(p)/'exports/lyrics';exp.mkdir(parents=True,exist_ok=True)
     txt=exp/(rev+'_original_romaji.txt')
     txt.write_text('\n\n'.join('\n'.join(x for x in [r['original'],r['romaji'],r['translation']] if x) for r in rows)+'\n',encoding='utf-8-sig')
     raw=exp/(rev+('_original.lrc' if timed else '_original.txt'));raw.write_text(original,encoding='utf-8-sig')

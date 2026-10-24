@@ -6,7 +6,7 @@ def prepare_manifest():
     for p in read_json(ROOT/'config/projects.json'):
         d=read_json(ROOT/'data/projects'/f"{p['id']}.json")['project']
         rows.append(p['id']+'\t'+d['working'].encode().hex())
-        alternate=Path(p['pilot'])/'working/sv2'/f"{p['id']}.svp"
+        alternate=Path(d.get('sv2Working') or Path(p['pilot'])/'working/sv2'/f"{p['id']}.svp")
         alternate.parent.mkdir(parents=True,exist_ok=True)
         if not alternate.exists():alternate.write_bytes(Path(d['working']).read_bytes())
         rows.append(p['id']+'\t'+str(alternate).encode().hex())

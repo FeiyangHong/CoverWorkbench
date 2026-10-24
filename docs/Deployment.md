@@ -22,7 +22,7 @@ Tabs in the same browser profile receive an immediate exit notice. Other browser
 
 1. Open **环境设置 / Environment settings**. Select your FFmpeg and FFprobe executable files, Studio One executable, Songs directory and optional MusicLyricApp cache. Empty executable fields use PATH detection. Settings go to ignored `config/settings.local.json` and take effect on the next request.
 2. Open **导入工程 / Import project**. Select a saved SVP, title, artist and language. Quoted Windows paths are accepted. A separated lead vocal is optional; inspecting supplied audio requires FFprobe. Use a supported browser audio format (WAV is recommended); AIFF playback depends on the browser.
-3. The importer creates `projects/song-<id>/snapshots/sv/source.svp` and `working/sv/project.svp`. It registers the new project without replacing existing ones. Media files stay at their original locations, read-only. Save and edit the work copy in SV. You can use the DAW builder without importing a project first.
+3. The importer creates `projects/Artist - Song/snapshots/sv/source.svp` and `working/sv/project.svp`. It registers the new project without replacing existing ones. Media files stay at their original locations, read-only. Save and edit the work copy in SV. You can use the DAW builder without importing a project first.
 4. Use lyrics/subtitles and delivery tools as needed. Lyrics searches make explicit network requests to the provider; files are otherwise processed locally. Imported lyrics, readings and timings still need human review.
 
 FFmpeg and FFprobe should come from the same installation; see the [official download page](https://ffmpeg.org/download.html). They are not bundled. Licensed SV/Studio One software, voice banks, plugins and media are supplied by the user.
@@ -73,3 +73,7 @@ See [CONTRIBUTING](../CONTRIBUTING.md) for clean-checkout tests. A clean-clone t
 ## Optional video tools
 
 The Video Studio requires configured FFmpeg and FFprobe for rendered previews and export. Run `tools/InstallVideoTools.ps1` for optional yt-dlp downloads and NumPy/SciPy alignment analysis. It uses the checkout virtual environment when available. No media is installed. See [Video Studio](VideoStudio.md) for workflow, private folders, export limits and moving media between devices.
+
+## Optional managed MSST separation
+
+Install MSST separately with its own working Python environment and model weights. Set its installation directory (or a resolvable Windows launcher/shortcut) in the separation service settings. The adapter detects the package workenv interpreter; a custom MSST Python path is also supported. The automated profiles require big_beta7.ckpt and/or mel_band_roformer_karaoke_becruily.ckpt, their matching model-index entries and YAML configs. No MSST web server is needed for managed jobs. The engine, its AGPL source, dependencies and weights are not bundled in this MIT project. Other model layouts remain available through the independent MSST UI; see [Production](Production.md).

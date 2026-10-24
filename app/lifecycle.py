@@ -34,7 +34,10 @@ def status():
     import native_audio
     import workflow
     import video_jobs
+    import separation_jobs
     with LOCK:
+        with separation_jobs.LOCK:
+            separations = sum(j['status'] in ['queued', 'running'] for j in separation_jobs.JOBS.values())
         with native_audio.LOCK:
             auditions = sum(j['status'] in ['queued', 'running'] for j in native_audio.JOBS.values())
         with workflow.GUARD:
@@ -43,8 +46,8 @@ def status():
             videos = sum(j['status'] in ['queued', 'running'] for j in video_jobs.JOBS.values())
         operations = dict(ACTIVE)
         return {'instance': INSTANCE, 'state': 'stopping' if STOPPING else 'running',
-                'canExit': not STOPPING and not operations and not auditions and not deliveries and not videos,
-                'auditions': auditions, 'deliveries': deliveries, 'videos': videos, 'operations': operations}
+                'canExit': not STOPPING and not operations and not auditions and not deliveries and not videos and not separations,
+                'auditions': auditions, 'deliveries': deliveries, 'videos': videos, 'separations': separations, 'operations': operations}
 
 
 def request_exit(instance):
