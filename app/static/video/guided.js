@@ -4,7 +4,7 @@
 const ui=window.CWVideoStudio;if(!ui)return;
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let checks=null,active=null,request=0,debounce=null,closed=false,zoom=1,drag=null,animation=null,expanded=true,hovered=null;
+let checks=null,active=null,request=0,debounce=null,closed=false,zoom=1,zoomMode='auto',drag=null,animation=null,expanded=true,hovered=null;
 const guide=$('#videoGuide'),host=$('#subtitleTimeline');
 const num=v=>Number.isFinite(Number(v))?Number(v):0;
 function panel(name,target){$(`[data-panel="${name}"]`)?.click();const el=target?$(target):$('#'+name);el?.scrollIntoView({block:'nearest',behavior:'smooth'});if(el?.matches('input'))el.focus();}
@@ -51,16 +51,17 @@ async function refreshChecks(){
 }
 function scheduleChecks(){clearTimeout(debounce);debounce=setTimeout(refreshChecks,350);}
 
-host.innerHTML=`<div class="subtitle-strip-head"><strong>字幕时间轴 <span>原文 / 译文</span></strong><div><button class="quiet" id="captionPrev" aria-label="上一句字幕">←</button><button class="quiet" id="captionNext" aria-label="下一句字幕">→</button><label>缩放<select id="captionZoom" aria-label="字幕时间轴缩放"><option value="1">全曲</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option><option value="16">16×</option></select></label><button class="quiet" id="captionFollow">定位播放头</button></div></div><input type="range" id="captionOverview" aria-label="全曲字幕播放位置" min="0" max="1" step="0.01" value="0"><div id="captionScroll" class="caption-scroll"><div id="captionCanvas" class="caption-canvas"></div></div><div class="caption-readout" id="captionReadout"></div><p class="hint">点击时间尺定位，点击字幕块选句；拖动块移动时间，拖动左右边缘调整起止。I / O 是循环区间，所有坐标以视频秒数显示。</p>`;
+host.innerHTML=`<div class="subtitle-strip-head"><strong>字幕时间轴 <span>原文 / 译文</span></strong><div><button class="quiet" id="captionPrev" aria-label="上一句字幕">←</button><button class="quiet" id="captionNext" aria-label="下一句字幕">→</button><button class="quiet" id="captionFollow">定位播放头</button></div></div><div class="caption-zoom-bar"><span>字幕缩放</span><button class="quiet" id="captionZoomOut" aria-label="缩小字幕时间轴">− 缩小</button><input id="captionZoomSlider" type="range" min="0" max="6" step="0.125" aria-label="字幕缩放滑块"><button id="captionZoomIn" aria-label="放大字幕时间轴">放大 ＋</button><select id="captionZoom" aria-label="字幕时间轴缩放"><option value="auto">校对视图 · 约 20 秒</option><option value="1">全曲</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option><option value="16">16×</option><option value="32">32×</option><option value="64">64×</option><option value="custom" disabled>自定义缩放</option></select></div><input type="range" id="captionOverview" aria-label="全曲字幕播放位置" min="0" max="1" step="0.01" value="0"><div id="captionScroll" class="caption-scroll"><div id="captionCanvas" class="caption-canvas"></div></div><div class="caption-window-bar"><button class="quiet" id="captionPagePrev" aria-label="浏览前一屏字幕">◀ 前一屏</button><span id="captionWindow" aria-live="off"></span><button class="quiet" id="captionPageNext" aria-label="浏览后一屏字幕">后一屏 ▶</button></div><div class="caption-readout" id="captionReadout"></div><p class="hint">点「放大」或拖动缩放滑块展开字幕；Ctrl + 滚轮围绕鼠标位置缩放。横向滚动或用「前一屏 / 后一屏」浏览。点击字幕选句，拖动字幕或两侧边缘调整时间。</p>`;
 const viewport=$('#captionScroll'),canvas=$('#captionCanvas');
 function duration(){const s=ui.get();const recorded=s.jobs.map(j=>j.result?.sourceVideo?.duration).find(Number.isFinite);return Math.max(1,s.duration||recorded||0,...(s.doc?.cues||[]).map(r=>num(r.end)+num(s.doc.subtitleShift)),num($('#out').value));}
-function geometry(){return {duration:duration(),width:Math.max(300,viewport.clientWidth)*zoom};}
+function geometry(){const total=duration();if(zoomMode==='auto')zoom=Math.max(1,Math.min(64,total/20));return {duration:total,width:Math.max(1,viewport.clientWidth)*zoom};}
 function location(clientX){const g=drag?.geometry||geometry();return Math.max(0,Math.min(g.duration,(clientX-viewport.getBoundingClientRect().left+viewport.scrollLeft)/g.width*g.duration));}
 function position(el,start,end,g){el.style.left=(start/g.duration*100)+'%';el.style.width=Math.max(.1,(end-start)/g.duration*100)+'%';}
 function renderTimeline(){
  const s=ui.get();if(!s.doc||drag||closed)return;const g=geometry(),shift=num(s.doc.subtitleShift);canvas.style.width=g.width+'px';
+ syncZoomControls();
  const tick=[.5,1,2,5,10,15,30,60,120,300,600].find(t=>t/g.duration*g.width>=65)||600;
- let ruler='';for(let t=0;t<=g.duration;t+=tick)ruler+=`<span style="left:${t/g.duration*100}%">${ui.fmt(t).slice(0,-4)}</span>`;
+ let ruler='';for(let t=0;t<=g.duration;t+=tick)ruler+=`<span style="left:${t/g.duration*100}%">${ui.fmt(t).slice(0,tick<1?-2:-4)}</span>`;
  const lanes=['original','translation'].map((key,i)=>`<div class="caption-lane lane-${key}" aria-label="${i?'译文':'原文'}字幕轨">${s.doc.cues.filter(r=>r[key]&&Number.isFinite(r.start)&&r.end>r.start).map(r=>{
   const start=r.start+shift,end=r.end+shift;return `<div role="button" tabindex="0" data-caption="${esc(r.id)}" class="caption-block ${r.id===s.selected?'selected':''}" style="left:${start/g.duration*100}%;width:${Math.max(.1,(end-start)/g.duration*100)}%" title="${esc(r.id+' · '+ui.fmt(start)+' — '+ui.fmt(end)+'\n'+r.original+'\n'+r.translation)}" aria-label="${esc(r.id+' '+r[key])}"><span class="caption-edge left" data-edge="start" role="slider" tabindex="0" aria-label="${esc(r.id)} 调整开始时间" aria-valuemin="0" aria-valuemax="${g.duration}" aria-valuenow="${start}"></span><span class="caption-words">${esc(r[key])}</span><span class="caption-edge right" data-edge="end" role="slider" tabindex="0" aria-label="${esc(r.id)} 调整结束时间" aria-valuemin="0" aria-valuemax="${g.duration}" aria-valuenow="${end}"></span></div>`;}).join('')}</div>`).join('');
  canvas.innerHTML=`<div class="caption-ruler" id="captionRuler">${ruler}</div><div class="caption-loop" id="captionLoop"><span data-loop="in" title="拖动循环入点 I">I</span><span data-loop="out" title="拖动循环出点 O">O</span></div>${lanes}<div id="captionPlayhead" class="caption-playhead"></div>`;
@@ -96,15 +97,26 @@ function tickPosition(){
  const playing=s.doc.cues.find(r=>t>=r.start+num(s.doc.subtitleShift)&&t<r.end+num(s.doc.subtitleShift));
  const row=s.doc.cues.find(r=>r.id===hovered)||(!ui.player.paused?playing:null)||s.doc.cues.find(r=>r.id===s.selected)||playing;
  $('#captionReadout').innerHTML=row?`<b>${esc(row.id)} · ${ui.fmt(row.start+num(s.doc.subtitleShift))} — ${ui.fmt(row.end+num(s.doc.subtitleShift))}</b><span>${esc(row.original)}</span><span>${esc(row.translation)}</span>`:'<span>点击字幕块查看完整原文和译文。</span>';
+ windowRange();
 }
-function follow(){const g=geometry(),x=ui.get().position/g.duration*g.width;viewport.scrollLeft=Math.max(0,x-viewport.clientWidth*.4);}
-$('#captionZoom').onchange=()=>{zoom=Number($('#captionZoom').value);renderTimeline();follow();};$('#captionFollow').onclick=follow;
-$('#captionOverview').oninput=()=>{ui.seek(num($('#captionOverview').value));tickPosition();};
+function windowRange(){const g=geometry(),start=viewport.scrollLeft/g.width*g.duration,end=Math.min(g.duration,(viewport.scrollLeft+viewport.clientWidth)/g.width*g.duration);$('#captionWindow').textContent=`${ui.fmt(start).slice(0,-2)} — ${ui.fmt(end).slice(0,-2)} · ${(end-start).toFixed(1)} 秒 / 屏`;$('#captionPagePrev').disabled=viewport.scrollLeft<1;$('#captionPageNext').disabled=viewport.scrollLeft+viewport.clientWidth>=viewport.scrollWidth-1;}
+function syncZoomControls(){const preset=[1,2,4,8,16,32,64].find(n=>Math.abs(n-zoom)<.0001);$('#captionZoom').value=zoomMode==='auto'?'auto':preset?String(preset):'custom';$('#captionZoomSlider').value=Math.log2(zoom);$('#captionZoomIn').disabled=zoom>=64;$('#captionZoomOut').disabled=zoom<=1;$('#captionZoomSlider').setAttribute('aria-valuetext',zoom.toFixed(1)+' 倍');}
+function saveZoom(){try{localStorage.setItem('cw-caption-zoom:'+ui.get().doc.id,JSON.stringify({mode:zoomMode,zoom}));}catch{}}
+function setZoom(value,mode='manual',at=ui.get().position,pixel=viewport.clientWidth*.4){zoomMode=mode;zoom=Math.max(1,Math.min(64,value));renderTimeline();const g=geometry();viewport.scrollLeft=Math.max(0,at/g.duration*g.width-pixel);windowRange();saveZoom();}
+function follow(){const g=geometry(),x=ui.get().position/g.duration*g.width;viewport.scrollLeft=Math.max(0,x-viewport.clientWidth*.4);windowRange();}
+$('#captionZoom').onchange=()=>{const value=$('#captionZoom').value;setZoom(value==='auto'?1:Number(value),value==='auto'?'auto':'manual');};$('#captionFollow').onclick=follow;
+$('#captionZoomIn').onclick=()=>setZoom(zoom*2);$('#captionZoomOut').onclick=()=>setZoom(zoom/2);
+$('#captionZoomSlider').oninput=()=>setZoom(2**Number($('#captionZoomSlider').value));
+viewport.addEventListener('wheel',e=>{if(!e.ctrlKey)return;e.preventDefault();const at=location(e.clientX),pixel=e.clientX-viewport.getBoundingClientRect().left;setZoom(zoom*2**(-Math.max(-400,Math.min(400,e.deltaY))/400),'manual',at,pixel);},{passive:false});
+viewport.addEventListener('scroll',windowRange);
+for(const [id,direction] of [['captionPagePrev',-1],['captionPageNext',1]])$('#'+id).onclick=()=>{viewport.scrollLeft+=direction*viewport.clientWidth*.85;windowRange();};
+$('#captionOverview').oninput=()=>{ui.seek(num($('#captionOverview').value));tickPosition();follow();};
 for(const [id,direction] of [['captionPrev',-1],['captionNext',1]])$('#'+id).onclick=()=>{const s=ui.get();if(!s.doc?.cues.length)return;const sorted=[...s.doc.cues].sort((a,b)=>a.start-b.start);let i=sorted.findIndex(r=>r.id===s.selected);if(i>=0)i+=direction;else if(direction>0){i=sorted.findIndex(r=>r.start+num(s.doc.subtitleShift)>s.position+.0001);if(i<0)i=sorted.length-1;}else{i=sorted.findLastIndex(r=>r.start+num(s.doc.subtitleShift)<s.position-.0001);}i=Math.max(0,Math.min(sorted.length-1,i));ui.select(sorted[i].id);renderTimeline();follow();};
-for(const id of ['in','out','loop'])$('#'+id).addEventListener('input',tickPosition);
+for(const id of ['in','out','loop'])$('#'+id).addEventListener('input',()=>{renderTimeline();follow();});
 function animate(){tickPosition();if(!ui.player.paused&&!closed)animation=requestAnimationFrame(animate);}
 ui.player.addEventListener('timeupdate',tickPosition);
-new ResizeObserver(()=>renderTimeline()).observe(viewport);
+ui.player.addEventListener('seeked',follow);
+new ResizeObserver(()=>{renderTimeline();follow();}).observe(viewport);
 
 // The labels are translated; CSS and FFmpeg still receive the actual local family name.
 const fontDialog=document.createElement('dialog');fontDialog.id='fontPreviewDialog';fontDialog.innerHTML='<div class="preview-head"><div><span class="eyebrow">SEE THE TYPE</span><h2>先看字形，再选字体。</h2></div><button id="fontClose" type="button" class="quiet">关闭</button></div><label>预览文字<input id="fontSample" value="让每一句，落在对的时间。 Aa 123 · かな"></label><div class="pair"><label>搜索字体<input id="fontSearch" placeholder="微软雅黑 / 黑体 / 宋体"></label><label>示例字号<input id="fontSize" type="range" min="18" max="48" value="28"></label></div><div id="fontSpecimens"></div><p class="hint">仅可选择本机检测到的字体。未安装的字体不会冒充实际字形；预览中的部分外文可能使用系统后备字体。成片效果请以准确渲染预览为准。</p>';document.body.append(fontDialog);
@@ -119,10 +131,10 @@ function specimens(){
 document.addEventListener('click',e=>{const b=e.target.closest('[data-font-browse]');if(!b)return;fontTarget=b.dataset.fontBrowse.split(':');$('#fontSearch').value='';specimens();fontDialog.showModal();});
 for(const id of ['fontSearch','fontSample','fontSize'])$('#'+id).oninput=specimens;$('#fontClose').onclick=()=>fontDialog.close();
 window.addEventListener('cw-video-change',e=>{
- if(e.detail.type==='open'){active=null;hovered=null;zoom=1;$('#captionZoom').value=1;checks=null;expanded=!(ui.get().doc?.video&&ui.get().doc?.audio&&ui.get().doc?.cues.length);}
+ if(e.detail.type==='open'){active=null;hovered=null;zoom=1;zoomMode='auto';try{const saved=JSON.parse(localStorage.getItem('cw-caption-zoom:'+ui.get().doc.id));if(saved&&['auto','manual'].includes(saved.mode)&&Number.isFinite(saved.zoom)){zoomMode=saved.mode;zoom=Math.max(1,Math.min(64,saved.zoom));}}catch{}checks=null;expanded=!(ui.get().doc?.video&&ui.get().doc?.audio&&ui.get().doc?.cues.length);}
  if(e.detail.type==='play'){cancelAnimationFrame(animation);animation=requestAnimationFrame(animate);return;}
  if(e.detail.type==='pause'){cancelAnimationFrame(animation);tickPosition();return;}
- renderTimeline();scheduleChecks();
+ renderTimeline();if(e.detail.type==='open')follow();scheduleChecks();
 });
 window.addEventListener('focus',()=>refreshChecks());
 const checkTimer=setInterval(()=>{if(!document.hidden)refreshChecks();},12000);
