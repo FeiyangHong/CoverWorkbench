@@ -126,6 +126,16 @@ Source code is managed separately from creative work. Git ignores local settings
 | `config/` | Public example configuration; personal settings are ignored |
 | `projects/`, `data/`, `runtime/` | Local creative and runtime data, excluded from Git |
 
+## Acknowledgements
+
+Thanks to the projects and maintainers that make these workflows possible:
+
+- [MSST-WebUI](https://github.com/SUC-DriverOld/MSST-WebUI) and [Music-Source-Separation-Training](https://github.com/ZFTurbo/Music-Source-Separation-Training) for the independently installed separation service.
+- [FFmpeg / FFprobe](https://ffmpeg.org/), [libass](https://github.com/libass/libass) and [yt-dlp](https://github.com/yt-dlp/yt-dlp) for media processing, subtitle rendering and optional video acquisition.
+- [pykakasi](https://github.com/miurahr/pykakasi), [Pedalboard](https://github.com/spotify/pedalboard) and [Playwright](https://playwright.dev/) for optional Japanese readings, native plugin audition and development checks.
+
+Native creation and mixing use independently installed [Synthesizer V / Dreamtonics](https://www.dreamtonics.com/synthesizerv/), [Studio One / Fender Studio](https://www.fender.com/pages/fender-studio-pro) and [FabFilter](https://www.fabfilter.com/). These projects and products retain their own terms; acknowledgement does not imply affiliation. Their applications, models and authorizations are not bundled. See [third-party notices](THIRD_PARTY_NOTICES.md).
+
 ## License
 
 CoverWorkbench's original source, documentation and product icons use the **[MIT License](LICENSE)**. Commercial use and proprietary modifications are permitted, subject to retaining the copyright and license notice. Third-party components, music, voice banks and user materials retain their own terms; see the [license policy](docs/Licensing.md) and [third-party notices](THIRD_PARTY_NOTICES.md).

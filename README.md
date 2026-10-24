@@ -145,6 +145,16 @@ SV 脚本需要另外安装到对应编辑器的脚本目录并重新扫描。�
 | `config/` | 公开示例配置；个人配置被忽略 |
 | `projects/`、`data/`、`runtime/` | 本机创作与运行数据，不上传 Git |
 
+## 致谢
+
+感谢这些项目及其维护者，让工作台可以串起已有的制作工具：
+
+- [MSST-WebUI](https://github.com/SUC-DriverOld/MSST-WebUI) 与 [Music-Source-Separation-Training](https://github.com/ZFTurbo/Music-Source-Separation-Training)：独立素材分离服务。
+- [FFmpeg / FFprobe](https://ffmpeg.org/)、[libass](https://github.com/libass/libass) 与 [yt-dlp](https://github.com/yt-dlp/yt-dlp)：媒体处理、字幕排版和可选视频下载。
+- [pykakasi](https://github.com/miurahr/pykakasi)、[Pedalboard](https://github.com/spotify/pedalboard) 与 [Playwright](https://playwright.dev/)：可选日语读音、原生插件试听和开发验证。
+
+原生创作与混音使用用户自行安装的 [Synthesizer V / Dreamtonics](https://www.dreamtonics.com/synthesizerv/)、[Studio One / Fender Studio](https://www.fender.com/pages/fender-studio-pro) 和 [FabFilter](https://www.fabfilter.com/)。以上项目与产品均有各自维护者与条款；致谢不代表官方合作，仓库不附带它们的软件、模型或授权。详见 [第三方声明](THIRD_PARTY_NOTICES.md)。
+
 ## 许可证
 
 CoverWorkbench 的原创代码、文档与产品图标采用 **[MIT License](LICENSE)**，允许商业使用及闭源修改，但须保留版权与许可声明。第三方组件、音乐、声库及用户素材遵循各自条款，见 [许可说明](docs/Licensing.md) 与 [第三方声明](THIRD_PARTY_NOTICES.md)。
