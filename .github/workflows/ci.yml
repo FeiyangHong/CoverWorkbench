@@ -34,6 +34,7 @@ jobs:
           python tests/video-storage.py
           python tests/video-captions.py
           python tests/video-lanes.py
+          node tests/video-history.cjs
           python tests/video-workflow.py
           python tools/release_check.py --for-public-release --ref HEAD
       - name: Install browser test dependencies

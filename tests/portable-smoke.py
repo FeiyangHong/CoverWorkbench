@@ -41,6 +41,7 @@ def main():
             {'name': 'Lead', 'dispOrder': 0, 'mainRef': {}, 'mainGroup': {'uuid': 'test-group', 'notes': [
                 {'onset': 0, 'duration': 705600000, 'pitch': 60, 'lyrics': 'la'}]}, 'groups': []}]}), encoding='utf-8')
         original_hash = hashlib.sha256(source.read_bytes()).hexdigest()
+        (dest / 'input.lrc').write_text('[00:01.000]First line\n[00:04.000]Second line\n', encoding='utf-8')
         with socket.socket() as sock:
             sock.bind(('127.0.0.1', 0)); port = sock.getsockname()[1]
         env = {**os.environ, 'COVERWORKBENCH_PORT': str(port), 'PYTHONNOUSERSITE': '1'}
@@ -108,6 +109,7 @@ def main():
             if args.browser:
                 subprocess.run(['node', str(ROOT / 'tests/video-ui.cjs'), base], check=True, cwd=ROOT)
                 subprocess.run(['node', str(ROOT / 'tests/video-timeline.cjs'), base], check=True, cwd=ROOT)
+                subprocess.run(['node', str(ROOT / 'tests/video-undo.cjs'), base], check=True, cwd=ROOT)
                 subprocess.run(['node', str(ROOT / 'tests/lifecycle-ui.cjs'), base], check=True, cwd=ROOT)
             else:
                 assert request('/api/shutdown/local', {'confirm': True, 'instance': service['instance']})['state'] == 'stopping'
