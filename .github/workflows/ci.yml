@@ -37,6 +37,7 @@ jobs:
           node tests/video-history.cjs
           python tests/video-workflow.py
           python tests/video-links.py
+          python tests/production.py
           python tools/release_check.py --for-public-release --ref HEAD
       - name: Install browser test dependencies
         run: |

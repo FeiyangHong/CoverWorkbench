@@ -13,7 +13,7 @@ function openVideo(id){host.open(id);}
 async function refreshCard(){
  const id=activeMusic(),token=++cardRequest;$('#musicVideoCard').hidden=!id;if(!id)return;
  $('#musicVideoOpen').disabled=true;$('#musicVideoSummary').textContent='正在读取对应视频与素材…';
- try{const data=await preview(id);if(token!==cardRequest||activeMusic()!==id)return;$('#musicVideoLabel').textContent=data.linked?'对应视频 · '+data.linked.name:'为「'+data.music.title+'」接上视频制作';$('#musicVideoOpen').textContent=data.linked?'进入本曲视频':'创建关联视频';$('#musicVideoSummary').textContent=[data.audio?'成品混音已找到':'尚未登记成品混音',`${data.captions.count} 组字幕 · ${data.captions.translation} 组含译文`,data.changed.audio||data.changed.captions?'音乐侧有新素材可更新':''].filter(Boolean).join(' · ');}
+ try{const data=await preview(id);if(token!==cardRequest||activeMusic()!==id)return;$('#musicVideoLabel').textContent=data.linked?'对应视频 · '+data.linked.name:'为「'+data.music.title+'」接上视频制作';$('#musicVideoOpen').textContent=data.linked?'进入本曲视频':'创建关联视频';$('#musicVideoSummary').textContent=[data.audio?'成品混音已找到':'尚未登记成品混音',data.linked?`视频已有 ${data.linked.cueCount} 组字幕（保留当前编辑）`:`${data.captions.count} 组字幕 · ${data.captions.translation} 组含译文`,data.changed.audio||data.changed.captions?'音乐侧有新素材可更新':''].filter(Boolean).join(' · ');}
  catch(e){if(token===cardRequest)$('#musicVideoSummary').textContent=e.message;}
  finally{if(token===cardRequest){$('#musicVideoOpen').disabled=false;$('#musicVideoManage').disabled=busy;}}
 }
@@ -79,6 +79,7 @@ $('#musicVideoManage').onclick=()=>activeMusic()&&showDialog(activeMusic());$('#
 document.addEventListener('click',e=>{if(e.target.closest('[data-music-video-open]'))enterMusicVideo();});
 document.addEventListener('click',e=>{if(!e.isTrusted||document.body.classList.contains('is-video-workspace')||!projects.length)return;if(e.target.closest('.tabs [data-tab="video"],[data-workspace="video"]')){e.preventDefault();e.stopImmediatePropagation();enterMusicVideo();}},true);
 document.addEventListener('click',e=>{if(e.target.closest('#projects [data-project]'))$('.tabs [data-tab="workflow"]').click();},true);
+window.addEventListener('cw-project-assets-change',refreshCard);
 window.addEventListener('cw-music-project-loading',()=>{musicLoading=true;cardRequest++;$('#musicVideoOpen').disabled=true;$('#musicVideoManage').disabled=true;$('#musicVideoSummary').textContent='正在切换歌曲…';});
 window.addEventListener('cw-music-project-change',()=>{musicLoading=false;refreshCard();});window.addEventListener('cw-video-project-state',refreshBar);
 window.addEventListener('focus',()=>{if(!closed&&activeMusic())refreshCard();});window.addEventListener('cw-workbench-exit',()=>{closed=true;cardRequest++;barRequest++;dialogRequest++;});

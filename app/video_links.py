@@ -77,6 +77,11 @@ def materials(ident, override=None):
     p = music(ident)
     pilot = Path(p['pilot'])
     candidates = []
+    assets = ROOT / 'config/project-assets.local.json'
+    registered_mix = read_json(assets).get('projects', {}).get(ident, {}).get('mix') if assets.exists() else None
+    item = audio_info(registered_mix, '项目素材中登记的成品混音') if registered_mix else None
+    if item:
+        candidates.append(item)
     # Use explicit, completed delivery records, never filename guesses or separated vocals.
     deliveries = []
     for path in (ROOT / 'runtime/workflow').glob('*.json'):

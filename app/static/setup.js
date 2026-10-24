@@ -15,7 +15,7 @@ $('#importProject').onclick=()=>importDialog.showModal();$('#closeImport').oncli
 $('#importProjectForm').onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{const p=await api('/api/project-import/new',Object.fromEntries(new FormData(e.target)));projects=await api('/api/projects');$('#emptyWelcome')?.remove();$$('.tabs [data-tab]').forEach(t=>t.disabled=false);$('#reportButton').disabled=false;await loadProject(p.id);$('.tabs [data-tab="workflow"]').click();importDialog.close();toast('工作副本已建立')}catch(err){$('#importProjectError').textContent=err.message}finally{b.disabled=false}};
 function showEmptyWorkbench(){
  $('#title').textContent='从你的第一首作品开始';$('#crumb').textContent='欢迎';$('#projectMeta').textContent='配置环境，导入 SVP，把重复步骤交给工作台。';$('#voiceBadge').textContent='';$('#reportButton').disabled=true;
- $$('.tabs [data-tab]').forEach(t=>t.disabled=!['daw','mix-guide','video'].includes(t.dataset.tab));
+ $$('.tabs [data-tab]').forEach(t=>t.disabled=!['workflow','separation','daw','mix-guide','video'].includes(t.dataset.tab));
  $('.project-heading').insertAdjacentHTML('afterend','<section id="emptyWelcome" class="empty-welcome"><span class="eyebrow">WELCOME TO COVERWORKBENCH</span><h2>你的声音，你的工作室。</h2><p>先在右上角「环境设置」检查工具，再点「导入工程」。如果只想建混音工程，也可以直接使用 Studio One 页面，选择初始模板或注册自有模板。</p><button class="button" id="welcomeImport">导入 SV 工程</button></section>');
  $('#welcomeImport').onclick=()=>importDialog.showModal();if($('.tabs .active')?.disabled)$('.tabs [data-tab="daw"]').click();
 }

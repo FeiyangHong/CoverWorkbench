@@ -46,7 +46,7 @@ async function submitWork(kind,button){
 }
 const originalLoadWorkflow=loadProject;
 loadProject=async function(id){await originalLoadWorkflow(id);if(pid===id&&bundle){nativePath();await refreshWorkflow(true)}};
-$$('.tabs [data-tab]').forEach(b=>{const previous=b.onclick;b.onclick=e=>{previous?.(e);$('.live-strip').hidden=b.dataset.tab!=='review';if(b.dataset.tab==='workflow')refreshWorkflow().catch(e=>toast(e.message))}});
+$$('.tabs [data-tab]').forEach(b=>{const previous=b.onclick;b.onclick=e=>{previous?.(e);$('.live-strip').hidden=!window.CWLegacyEnabled||b.dataset.tab!=='review';if(b.dataset.tab==='workflow')refreshWorkflow().catch(e=>toast(e.message))}});
 $('.live-strip').hidden=true;
 $$('[data-open-tab]').forEach(b=>b.onclick=()=>$('.tabs [data-tab="'+b.dataset.openTab+'"]').click());
 $('#phraseLine').onchange=preparePhrase;$('#phraseTokens').oninput=tokenCount;
@@ -54,5 +54,5 @@ $('#copyPhrase').onclick=async()=>{try{await navigator.clipboard.writeText($('#p
 $('#submitDelivery').onclick=()=>submitWork('delivery',$('#submitDelivery'));
 $('#refreshJobs').onclick=()=>refreshWorkflow().catch(e=>toast(e.message));
 $('#watchEnabled').onchange=async()=>{try{await api('/api/watcher/'+pid,{enabled:$('#watchEnabled').checked});await refreshWorkflow()}catch(e){toast(e.message);refreshWorkflow()}};
-const workflowPolling=setInterval(()=>{if(bundle&&!$('#workflow').hidden)refreshWorkflow().catch(()=>{})},2500);
+const workflowPolling=setInterval(()=>{if(bundle&&!$('#workflow').hidden&&$('#deliveryTools').open&&(workflowState?.jobs||[]).some(j=>['queued','running'].includes(j.status)))refreshWorkflow().catch(()=>{})},10000);
 window.addEventListener('cw-workbench-exit',()=>clearInterval(workflowPolling),{once:true});

@@ -27,7 +27,8 @@ CoverWorkbench handles repeatable preparation and delivery tasks while detailed 
 | --- | --- | --- |
 | Project preparation | Import a saved SVP into an original snapshot and a separate work copy | Song, language and source version |
 | Lyrics and subtitles | Import local lyrics or explicitly search, prepare optional Japanese romaji and subtitle drafts | Lyrics, readings, translation and timing |
-| Repetitive SV tasks | Native scripts for phrase lyrics, phrase reuse and group-level base voice presets | Pitch, rhythm, voice bank and expressive details |
+| Production home | Register SVP, Song, stems and final mixes, then open the corresponding native project | Edit notes, lyrics, pitch, voice banks and expression in SV |
+| Source separation | Launch, open or optionally embed a separately installed local MSST service | Model selection and stem audition |
 | Studio One setup | Build an independent Song from a compatible local template, mapping vocal outputs and preserving effects and routing | Template choice and mix adjustments for the new song |
 | Mixing reference | Find controls by sound goal, with clear control maps, cropped references and reverb/delay/EQ A/B demos | Audition and adjust in Studio One |
 | Video production | [Link each song to its video, carry over its final mix and saved bilingual captions, preview and export independent versions](docs/VideoStudio.md) | Timing, translation and final visual checks |
@@ -35,9 +36,9 @@ CoverWorkbench handles repeatable preparation and delivery tasks while detailed 
 
 ## Preview
 
-### Workflow desk: prepare materials, focus on music, organize delivery
+### Project home: continue from stems to the finished video
 
-![Workflow desk with phrase lyrics, phrase reuse and voice preset tools](docs/images/workflow.png)
+![Project home with separation, native SV and Studio One handoffs, video entry and registered assets](docs/images/workflow.png)
 
 ### Studio One: inspect parts, assign roles, choose a starter mix template
 
@@ -138,3 +139,9 @@ Open **视频制作** from the workbench for local video sources or optional yt-
 The screenshot uses a procedurally generated still and test tone in a fictional project. It shows the fast layout view; rendered previews and exports use local FFmpeg/libass.
 
 The video workspace includes six-step readiness checks, recorded caption clocks with one-time offset deltas, and a zoomable dual-language caption strip. Common Chinese fonts have Chinese labels and a separate specimen picker with editable sample text; unavailable fonts are explicitly marked.
+
+## Production home and MSST
+
+The project home offers four handoffs: separate stems, edit in native SV, mix in Studio One, and finish the associated video. Register files once through **管理文件路径**. The **素材分离** page can launch a user-configured Windows MSST EXE/shortcut, open its localhost URL, or embed it on request. MSST and its models remain separately installed; closing the workbench does not close the MSST process.
+
+Fine note editing stays in SV; final captions stay in Video Studio. Legacy review, model comparison, SV remote controls and music-side caption drafts are hidden unless explicitly enabled under **更多工具与历史功能**. Normal use does not poll the SV live bridge. See the [Chinese production guide](docs/Production.md).

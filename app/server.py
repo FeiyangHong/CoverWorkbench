@@ -7,6 +7,7 @@ settings.initialize()
 from core import *
 import lyrics, live, workflow, daw, desktop, projects, native_audio, song_mix, lifecycle
 import video_project, video_jobs, video_workflow, video_captions, video_links
+import project_assets, separation
 live.prepare_manifest()
 
 PORT=int(os.environ.get("COVERWORKBENCH_PORT", "8765"))
@@ -113,6 +114,8 @@ class Handler(BaseHTTPRequestHandler):
             if parts[0]=='mix-audio' and len(parts)==3:return self.file(native_audio.media(parts[1],parts[2]))
             if path=='/api/projects':return self.respond(read_json(ROOT/'config/projects.json'))
             if parts[:2]==['api','music-video'] and len(parts)==3:return self.respond(video_links.overview(parts[2]))
+            if parts==['api','separation']:return self.respond(separation.status())
+            if parts[:2]==['api','project-assets'] and len(parts)==3:return self.respond(project_assets.status(parts[2]))
             if parts[:2]==['api','video-music'] and len(parts)==3:return self.respond(video_links.for_video(parts[2]))
             if path=='/api/desktop':return self.respond(desktop.status())
             if len(parts)==2 and parts[0]=='desktop-icons':return self.file(desktop.asset(parts[1]),parts[1].endswith('.ico'))
@@ -156,6 +159,9 @@ class Handler(BaseHTTPRequestHandler):
             body=json.loads(self.rfile.read(size));parts=unquote(urlsplit(self.path).path).strip('/').split('/')
             if len(parts)!=3 or parts[0]!='api':return self.respond({'error':'Route not found'},404)
             action,pid=parts[1:]
+            if action=='project-assets':return self.respond(project_assets.save(pid,body))
+            if action=='project-asset-open':return self.respond(project_assets.open_asset(pid,body))
+            if action=='separation-launch':return self.respond(separation.launch())
             if action=='music-video':return self.respond(video_links.perform(pid,body))
             if action=='video-caption':return self.respond(video_captions.render(body))
             if action=='video-create':return self.respond(video_project.create(body),201)

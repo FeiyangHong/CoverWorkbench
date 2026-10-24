@@ -52,7 +52,7 @@ renderNote=function(){
 const baseRenderLive=renderLive;
 renderLive=function(){baseRenderLive();refreshEditor()};
 function refreshEditor(){
- if(!bundle)return;
+ if(!bundle||$('#review').hidden)return;
  if(editorProject!==pid){editorProject=pid;segment={start:0,end:Math.min(12,bundle.project.duration)};$('#rangeA').value=0;$('#rangeB').value=segment.end;$('#auditionTarget').value='reference';svGainDirty=false;editorRibbonKey=''}
  const live=bundle.live||{},native=$('#auditionTarget').value==='sv',playing=auditionPlaying();
  $('#currentTime').textContent=precise(auditionPosition());$('#play').textContent=playing?'Ⅱ':'▶';$('#play').setAttribute('aria-label',playing?'暂停':'播放');
