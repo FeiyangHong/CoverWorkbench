@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="250" viewBox="0 0 960 250" role="img" aria-labelledby="title desc">
+<title id="title">Pro-DS 常用控件教学示意</title>
+<desc id="desc">原创参数卡片，非插件截图；按英文名称在实际插件中定位。</desc>
+<rect width="960" height="250" rx="18" fill="#f7f5fc"/>
+<g font-family="Segoe UI,Microsoft YaHei,sans-serif">
+<text x="28" y="31" font-size="16" fill="#625177" font-weight="650">Pro-DS · 常用控件</text>
+<text x="930" y="31" text-anchor="end" font-size="12" fill="#9483a5">教学示意 · 非插件截图</text>
+<circle cx="134.4" cy="120.0" r="33" fill="white" stroke="#d5c7e8" stroke-width="3"/>
+<path d="M109.4 140.0 A32 32 0 1 1 159.4 140.0" stroke="#9d81c6" stroke-width="3" fill="none" stroke-linecap="round"/>
+<text x="134.4" y="181.0" text-anchor="middle" font-size="20" fill="#5a426f" font-weight="600">Threshold</text>
+<text x="134.4" y="204.0" text-anchor="middle" font-size="16" fill="#8b789d">齿音阈值</text>
+<circle cx="364.8" cy="120.0" r="33" fill="white" stroke="#d5c7e8" stroke-width="3"/>
+<path d="M339.8 140.0 A32 32 0 1 1 389.8 140.0" stroke="#9d81c6" stroke-width="3" fill="none" stroke-linecap="round"/>
+<text x="364.8" y="181.0" text-anchor="middle" font-size="20" fill="#5a426f" font-weight="600">Range</text>
+<text x="364.8" y="204.0" text-anchor="middle" font-size="16" fill="#8b789d">削减幅度</text>
+<circle cx="595.1999999999999" cy="120.0" r="33" fill="white" stroke="#d5c7e8" stroke-width="3"/>
+<path d="M570.1999999999999 140.0 A32 32 0 1 1 620.1999999999999 140.0" stroke="#9d81c6" stroke-width="3" fill="none" stroke-linecap="round"/>
+<text x="595.1999999999999" y="181.0" text-anchor="middle" font-size="20" fill="#5a426f" font-weight="600">Single Vocal</text>
+<text x="595.1999999999999" y="204.0" text-anchor="middle" font-size="16" fill="#8b789d">检测模式</text>
+<circle cx="825.6" cy="120.0" r="33" fill="white" stroke="#d5c7e8" stroke-width="3"/>
+<path d="M800.6 140.0 A32 32 0 1 1 850.6 140.0" stroke="#9d81c6" stroke-width="3" fill="none" stroke-linecap="round"/>
+<text x="825.6" y="181.0" text-anchor="middle" font-size="20" fill="#5a426f" font-weight="600">Audition</text>
+<text x="825.6" y="204.0" text-anchor="middle" font-size="16" fill="#8b789d">检测试听</text>
+</g></svg>

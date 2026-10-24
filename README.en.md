@@ -29,7 +29,7 @@ CoverWorkbench handles repeatable preparation and delivery tasks while detailed 
 | Lyrics and subtitles | Import local lyrics or explicitly search, prepare optional Japanese romaji and subtitle drafts | Lyrics, readings, translation and timing |
 | Repetitive SV tasks | Native scripts for phrase lyrics, phrase reuse and group-level base voice presets | Pitch, rhythm, voice bank and expressive details |
 | Studio One setup | Build an independent Song from a compatible local template, mapping vocal outputs and preserving effects and routing | Template choice and mix adjustments for the new song |
-| Mixing reference | Find controls by sound goal, with annotated plugin screenshots and zoom | Audition and adjust in Studio One |
+| Mixing reference | Find controls by sound goal, with clear control maps, cropped references and reverb/delay/EQ A/B demos | Audition and adjust in Studio One |
 | Checks and delivery | Use local FFmpeg for audio checks, delivery packages and video audio replacement | Final listening, visuals and publication |
 
 ## Preview

@@ -19,6 +19,12 @@ module.exports = async function verifyMixGuide(page, base) {
       await control.click();
       assert.equal(await page.locator(`#mgControls [data-mg-control="${controlId}"]`).getAttribute('aria-pressed'), 'true');
       assert((await page.locator('#mgControlDetail').innerText()).length > 30);
+      await page.locator('[data-mg-view="photo"]').click();
+      await page.locator('#mgImage img').evaluate(image => image.decode());
+      const image = await page.locator('#mgImage img').evaluate(image => ({natural: image.naturalWidth, width: image.getBoundingClientRect().width, height: image.getBoundingClientRect().height}));
+      assert(image.width <= image.natural + 1, 'Reference screenshot must not be upscaled');
+      assert(image.height <= 340, 'Default reference should remain compact');
+      await page.locator('[data-mg-view="clear"]').click();
     }
     await page.locator('#mgBackToGoal').click();
     assert.equal(await page.locator('[data-mg-plugin="reverb"]').getAttribute('aria-pressed'), 'true');
@@ -60,6 +66,7 @@ module.exports = async function verifyMixGuide(page, base) {
     await standalone.goto(base + '/mix-guide/index.html');
     await standalone.locator('#mgImage img').evaluate(image => image.decode());
     assert.equal(await standalone.locator('[data-mg-goal]').count(), 18);
+    await require('./mix-audio.cjs')(standalone);
     assert.deepEqual(errors, []);
   } finally {
     await standalone.close();

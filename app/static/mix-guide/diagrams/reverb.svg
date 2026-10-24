@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="250" viewBox="0 0 960 250" role="img" aria-labelledby="title desc">
+<title id="title">Pro-R 2 常用控件教学示意</title>
+<desc id="desc">原创参数卡片，非插件截图；按英文名称在实际插件中定位。</desc>
+<rect width="960" height="250" rx="18" fill="#f7f5fc"/>
+<g font-family="Segoe UI,Microsoft YaHei,sans-serif">
+<text x="28" y="31" font-size="16" fill="#625177" font-weight="650">Pro-R 2 · 常用控件</text>
+<text x="930" y="31" text-anchor="end" font-size="12" fill="#9483a5">教学示意 · 非插件截图</text>
+<circle cx="86.39999999999999" cy="120.0" r="33" fill="white" stroke="#d5c7e8" stroke-width="3"/>
+<path d="M61.39999999999999 140.0 A32 32 0 1 1 111.39999999999999 140.0" stroke="#9d81c6" stroke-width="3" fill="none" stroke-linecap="round"/>
+<text x="86.39999999999999" y="181.0" text-anchor="middle" font-size="20" fill="#5a426f" font-weight="600">Predelay</text>
+<text x="86.39999999999999" y="204.0" text-anchor="middle" font-size="16" fill="#8b789d">预延迟</text>
+<circle cx="345.59999999999997" cy="120.0" r="33" fill="white" stroke="#d5c7e8" stroke-width="3"/>
+<path d="M320.59999999999997 140.0 A32 32 0 1 1 370.59999999999997 140.0" stroke="#9d81c6" stroke-width="3" fill="none" stroke-linecap="round"/>
+<text x="345.59999999999997" y="181.0" text-anchor="middle" font-size="20" fill="#5a426f" font-weight="600">Space</text>
+<text x="345.59999999999997" y="204.0" text-anchor="middle" font-size="16" fill="#8b789d">空间 / 尾音时间</text>
+<circle cx="489.59999999999997" cy="120.0" r="33" fill="white" stroke="#d5c7e8" stroke-width="3"/>
+<path d="M464.59999999999997 140.0 A32 32 0 1 1 514.5999999999999 140.0" stroke="#9d81c6" stroke-width="3" fill="none" stroke-linecap="round"/>
+<text x="489.59999999999997" y="181.0" text-anchor="middle" font-size="20" fill="#5a426f" font-weight="600">Decay Rate</text>
+<text x="489.59999999999997" y="204.0" text-anchor="middle" font-size="16" fill="#8b789d">尾音比例</text>
+<circle cx="633.6" cy="120.0" r="33" fill="white" stroke="#d5c7e8" stroke-width="3"/>
+<path d="M608.6 140.0 A32 32 0 1 1 658.6 140.0" stroke="#9d81c6" stroke-width="3" fill="none" stroke-linecap="round"/>
+<text x="633.6" y="181.0" text-anchor="middle" font-size="20" fill="#5a426f" font-weight="600">Brightness</text>
+<text x="633.6" y="204.0" text-anchor="middle" font-size="16" fill="#8b789d">尾音明暗</text>
+<circle cx="768.0" cy="120.0" r="33" fill="white" stroke="#d5c7e8" stroke-width="3"/>
+<path d="M743.0 140.0 A32 32 0 1 1 793.0 140.0" stroke="#9d81c6" stroke-width="3" fill="none" stroke-linecap="round"/>
+<text x="768.0" y="181.0" text-anchor="middle" font-size="20" fill="#5a426f" font-weight="600">Ducking</text>
+<text x="768.0" y="204.0" text-anchor="middle" font-size="16" fill="#8b789d">唱时降低混响</text>
+<circle cx="892.8" cy="120.0" r="33" fill="white" stroke="#d5c7e8" stroke-width="3"/>
+<path d="M867.8 140.0 A32 32 0 1 1 917.8 140.0" stroke="#9d81c6" stroke-width="3" fill="none" stroke-linecap="round"/>
+<text x="892.8" y="181.0" text-anchor="middle" font-size="20" fill="#5a426f" font-weight="600">Mix</text>
+<text x="892.8" y="204.0" text-anchor="middle" font-size="16" fill="#8b789d">干湿比例</text>
+</g></svg>
