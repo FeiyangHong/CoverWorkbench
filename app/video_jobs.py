@@ -84,8 +84,11 @@ def history(ident):
     rows=[]
     for p in list((dest/'Jobs').glob('*/job.json'))+list((dest/'Exports').glob('*/job.json')):
         try:
-            d=read_json(p)
-            with LOCK: active=d['id'] in JOBS
+            # Poll live jobs in memory instead of opening the file being replaced.
+            with LOCK:
+                active=p.parent.name in JOBS
+                d=public(JOBS[p.parent.name]) if active else None
+            if d is None: d=read_json(p)
             if not active and d['status'] in ['queued','running']:
                 d.update(status='interrupted',message='上次服务中断。输入与已完成版本保留，请重新提交。')
             rows.append(d)

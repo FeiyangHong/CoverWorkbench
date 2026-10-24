@@ -21,6 +21,7 @@ def wait(j):
     until=time.monotonic()+90
     while jobs.job(j['id'])['status'] in ['queued','running']:
         assert time.monotonic()<until,'Job timeout'
+        assert any(row['id']==j['id'] for row in jobs.history(j['project']))
         time.sleep(.1)
     result=jobs.job(j['id'])
     assert result['status']=='completed',result

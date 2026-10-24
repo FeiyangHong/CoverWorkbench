@@ -1,19 +1,56 @@
 """Local-only project parsing and copy-on-export editing. No writes to source files."""
 from pathlib import Path
 import bisect, csv, hashlib, io, json, math, re, time, uuid
+import os
+import tempfile
+import threading
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / 'data'
 BLICK = 705600000
+# Bounded lock storage; readers must close their Windows handles before replace.
+_JSON_LOCKS = tuple(threading.RLock() for _ in range(64))
+
+
+def _json_lock(path):
+    return _JSON_LOCKS[hash(os.path.normcase(os.path.abspath(path))) % len(_JSON_LOCKS)]
+
+
+def _replace_json(source, destination):
+    deadline = time.monotonic() + 2
+    delay = .025
+    while True:
+        try:
+            os.replace(source, destination)
+            return
+        except OSError as exc:
+            # Other processes (e.g. scanners) can briefly deny delete sharing.
+            remaining = deadline - time.monotonic()
+            if os.name != 'nt' or getattr(exc, 'winerror', None) not in (5, 32, 33) or remaining <= 0:
+                raise
+            time.sleep(min(delay, remaining))
+            delay = min(delay * 2, .2)
 
 def read_json(path):
-    return json.loads(Path(path).read_text(encoding='utf-8-sig').rstrip('\x00'))
+    with _json_lock(path):
+        text = Path(path).read_text(encoding='utf-8-sig').rstrip('\x00')
+    return json.loads(text)
 
 def save_json(path, value):
     p = Path(path); p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_suffix(p.suffix + '.tmp')
-    tmp.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding='utf-8')
-    tmp.replace(p)
+    text = json.dumps(value, ensure_ascii=False, indent=2)
+    with _json_lock(p):
+        # Unique names also isolate writers in separate workbench processes.
+        fd, name = tempfile.mkstemp(prefix='.' + p.name + '.', suffix='.tmp', dir=p.parent)
+        try:
+            with os.fdopen(fd, 'w', encoding='utf-8') as stream:
+                stream.write(text)
+            _replace_json(name, p)
+        finally:
+            try:
+                Path(name).unlink(missing_ok=True)
+            except OSError:
+                pass
 
 def sha(path):
     h = hashlib.sha256()
