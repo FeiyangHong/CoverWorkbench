@@ -6,7 +6,7 @@ import settings
 settings.initialize()
 from core import *
 import lyrics, live, workflow, daw, desktop, projects, native_audio, song_mix, lifecycle
-import video_project, video_jobs
+import video_project, video_jobs, video_workflow
 live.prepare_manifest()
 
 PORT=int(os.environ.get("COVERWORKBENCH_PORT", "8765"))
@@ -102,6 +102,7 @@ class Handler(BaseHTTPRequestHandler):
             if path=='/api/video-status':return self.respond({'projects':video_project.listing(),'dependencies':video_jobs.dependencies()})
             if parts[:2]==['api','video-project'] and len(parts)==3:return self.respond({'project':video_project.load(parts[2]),'jobs':video_jobs.history(parts[2])})
             if parts[:2]==['api','video-history'] and len(parts)==3:return self.respond(video_jobs.history(parts[2]))
+            if parts[:2]==['api','video-check'] and len(parts)==3:return self.respond(video_workflow.checks(video_project.load(parts[2]),video_jobs.history(parts[2])))
             if parts[:2]==['api','video-job'] and len(parts)==3:return self.respond(video_jobs.job(parts[2]))
             if parts[0]=='video-source' and len(parts)==3:return self.file(video_jobs.source(parts[1],parts[2]))
             if parts[0]=='video-output' and len(parts)==4:return self.file(video_jobs.media(parts[1],parts[2],parts[3]),not parts[3].startswith('preview.'))
@@ -154,6 +155,11 @@ class Handler(BaseHTTPRequestHandler):
             action,pid=parts[1:]
             if action=='video-create':return self.respond(video_project.create(body),201)
             if action=='video-save':return self.respond(video_project.save(pid,body))
+            if action=='video-check':
+                current=video_project.load(pid)
+                draft={**current,**{k:v for k,v in body.items() if k in video_workflow.FIELDS}}
+                return self.respond(video_workflow.checks(draft,video_jobs.history(pid)))
+            if action=='video-review':return self.respond(video_workflow.review(pid,body))
             if action=='video-import':return self.respond(video_project.import_legacy(body),201)
             if action=='video-captions':return self.respond(video_project.import_captions(pid,body))
             if action=='video-sv':return self.respond(video_project.sv_anchors(body))

@@ -62,6 +62,15 @@ CoverWorkbench 把适合批量处理的步骤交给工具，让歌词、音符�
 
 > 视频截图使用程序生成的画面与测试音调，仅展示虚构工程的快速布局。准确预览和正式导出使用本机 FFmpeg/libass，原素材与每版成片分别保留。详见[视频制作指南](docs/VideoStudio.md)。
 
+<details>
+<summary>字体预览：用中文名称找字体，先看字形再应用</summary>
+
+<img src="docs/images/font-preview.png" width="600" alt="中文字体预览，展示微软雅黑、黑体、宋体和楷体的实际示例">
+
+支持自定义示例文字、搜索与示例字号；未安装字体明确标注。视频制作页同时提供六步缺项检查、偏移来源记录和可缩放的双语字幕时间轴。
+
+</details>
+
 ## 工作流程
 
 ![五步制作流程：分离素材、SV 校对调声、工作台创建混音工程、Studio One 混音、工作台检查交付](docs/images/workflow-zh.svg)

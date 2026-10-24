@@ -18,6 +18,7 @@ import uuid
 import settings
 import lifecycle
 import video_project as project
+import video_workflow
 from core import read_json, save_json, sha
 
 LOCK = threading.RLock()
@@ -34,7 +35,23 @@ def dependencies():
     return {'ffmpeg':bool(settings.executable('ffmpeg',False)), 'ffprobe':bool(settings.executable('ffprobe',False)),
             'download':bool(shutil.which('yt-dlp') or importlib.util.find_spec('yt_dlp')),
             'alignment':all(importlib.util.find_spec(x) for x in ['numpy','scipy']),
-            'fonts':fonts()}
+            'fonts':fonts(),'fontCatalog':font_catalog()}
+
+
+def font_catalog():
+    installed=fonts();normalized={s.casefold() for s in installed}
+    common=[('微软雅黑','Microsoft YaHei','msyh.ttc'),('微软雅黑 UI','Microsoft YaHei UI','msyh.ttc'),
+            ('黑体','SimHei','simhei.ttf'),('宋体','SimSun','simsun.ttc'),('新宋体','NSimSun','simsun.ttc'),
+            ('楷体','KaiTi','simkai.ttf'),('仿宋','FangSong','simfang.ttf'),('等线','DengXian','Deng.ttf'),
+            ('微软正黑体','Microsoft JhengHei','msjh.ttc'),('思源黑体','Source Han Sans SC',''),
+            ('思源宋体','Source Han Serif SC',''),('思源黑体 Noto','Noto Sans CJK SC',''),
+            ('Arial · 西文','Arial','arial.ttf'),('Segoe UI · 西文','Segoe UI','segoeui.ttf')]
+    result=[];seen=set();base=Path(os.environ.get('WINDIR','C:/Windows'))/'Fonts'
+    for label,family,filename in common:
+        available=any(n==family.casefold() or n.startswith(family.casefold()+' ') for n in normalized) or label.casefold() in normalized or bool(filename and (base/filename).is_file())
+        result.append({'label':label,'family':family,'available':available,'common':True});seen.add(family.casefold())
+    result += [{'label':s,'family':s,'available':True,'common':False} for s in installed if s.casefold() not in seen]
+    return result
 
 
 def fonts():
@@ -98,6 +115,9 @@ def submit(ident, body):
         if kind!='download':
             if not doc['video'] or not doc['audio']: raise ValueError('请先选择视频与翻唱混音，并保存')
             settings.executable('ffmpeg'); settings.executable('ffprobe')
+        if kind in ['preview','export']:
+            errors=video_workflow.blockers(doc)
+            if errors:raise ValueError('；'.join(errors))
         spec={}
         if kind=='preview':
             start=project.number(body.get('start',0),0,86400,'预览起点')
@@ -117,7 +137,7 @@ def submit(ident, body):
             folder=project.folder(ident)/('Exports' if kind=='export' else 'Jobs')/jid
             folder.mkdir()
             save_json(folder/'snapshot.json',doc)
-            j=dict(id=jid,project=ident,kind=kind,status='queued',progress=0,stage='等待处理',message='',
+            j=dict(id=jid,project=ident,kind=kind,status='queued',progress=0,stage='等待处理',message='',renderSignature=video_workflow.signature(doc),mediaSignature=video_workflow.media_signature(doc),
                    created=time.time(),folder=str(folder),spec=spec,files=[],snapshot=doc,cancel=threading.Event())
             update(j)
             JOBS[jid]=j
@@ -245,6 +265,7 @@ def correlate(j,doc,duration):
 
 def render(j):
     doc=j['snapshot']; folder=Path(j['folder'])
+    if video_workflow.signature(doc)!=j['renderSignature']:raise ValueError('排队后素材发生变化，请重新提交任务')
     vi=probe(j,doc['video']); ai=probe(j,doc['audio']); duration=vi['duration']
     video=next((s for s in vi['streams'] if s['codec_type']=='video'),None)
     if not video: raise ValueError('所选视频没有画面流')
@@ -256,7 +277,7 @@ def render(j):
     if j['kind']=='analyze':
         reference=measure(j,doc['video'],label='测量原视频响度')
         cover=measure(j,doc['audio'],aligned(doc,duration),label='测量对齐翻唱响度')
-        report={'reference':reference,'cover':cover,'suggestedGainDb':round(reference['input_i']-cover['input_i'],2),
+        report={'reference':reference,'cover':cover,'suggestedGainDb':round(reference['input_i']-cover['input_i'],2),'mediaSignature':j['mediaSignature'],
                 'suggestedTargetLufs':max(-30,min(-5,reference['input_i'])),'alignment':correlate(j,doc,min(duration,ai['duration'])),
                 'warnings':warnings,'inputs':before,'note':'响度匹配可能需要限制峰值；提升响度会改变动态，应用前请试听。'}
         if any(sha(p)!=h for p,h in before.items()):raise ValueError('分析期间素材发生变化，请保存源文件后重试')
@@ -302,13 +323,14 @@ def render(j):
     after={p:sha(p) for p in before}
     if after!=before: raise ValueError('渲染期间源文件发生变化，结果未确认为成片，请保存源文件后重试')
     report=dict(status='complete',revision=doc['revision'],inputs=before,sourceUnchanged=True,sourceVideo=vi,sourceAudio=ai,
+                renderSignature=j['renderSignature'],
                 output=output_info,loudness=loudness,warnings=warnings,start=start,end=end,
                 subtitleClock='video seconds; subtitleShift applied once',audioOffset=doc['audioOffset'],
                 audioMode=doc['audioMode'],measured=measured,limitations='Decode, duration, hash and loudness checks; final listening/translation review remains manual.')
     check(j); partial.rename(output)
     report['sha256']=sha(output)
     save_json(folder/'report.json',report)
-    update(j,result=report,files=[output.name,'captions.ass','captions.srt','snapshot.json','report.json'])
+    update(j,result=report,files=[output.name,'captions.ass','captions.srt','caption-timing.json','snapshot.json','report.json'])
 
 
 def download(j):
@@ -339,7 +361,7 @@ def run(j):
 
 def media(ident,jid,name):
     if not re.fullmatch(r'[0-9a-f]{32}',jid): raise ValueError('无效任务编号')
-    if name not in ['preview.mp4','video.mp4','video.mkv','captions.ass','captions.srt','report.json','snapshot.json','analysis.json']:
+    if name not in ['preview.mp4','video.mp4','video.mkv','captions.ass','captions.srt','caption-timing.json','report.json','snapshot.json','analysis.json']:
         raise ValueError('文件不可下载')
     for parent in ['Jobs','Exports']:
         dest=project.folder(ident)/parent/jid

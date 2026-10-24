@@ -12,6 +12,7 @@ sys.path.insert(0,str(ROOT/'app'))
 import video_project as project
 import video_jobs as jobs
 import lifecycle
+import video_workflow as workflow
 import settings
 from core import sha, read_json
 
@@ -68,6 +69,7 @@ def main():
         jobs.render=sleeping
         media=base/'input.wav';media.write_bytes(b'synthetic placeholder')
         doc.update(video=str(media),audio=str(media));doc=project.save(doc['id'],doc)
+        doc=workflow.review(doc['id'],{'revision':doc['revision'],'action':'video-clock'})
         task=jobs.submit(doc['id'],{'kind':'export'})
         assert lifecycle.status()['videos']==1 and not lifecycle.status()['canExit']
         until=time.monotonic()+5
@@ -88,8 +90,10 @@ def main():
             original_hashes={str(p):sha(p) for p in [video,audio]}
             doc.update(video=str(video),audio=str(audio),audioOffset=.5,cues=[dict(id='A',start=1,end=5,original='Synthetic subtitle',translation='Test translation')],audioMode='normalize',targetLufs=-16)
             doc=project.save(doc['id'],doc)
+            doc=workflow.review(doc['id'],{'revision':doc['revision'],'action':'video-clock'})
             preview=wait(jobs.submit(doc['id'],{'kind':'preview','start':1,'end':3}))
             assert preview['result']['sourceUnchanged'] and abs(preview['result']['output']['duration']-2)<.1
+            assert workflow.checks(doc,[preview])['previewReady']
             exported=wait(jobs.submit(doc['id'],{'kind':'export'}))
             assert exported['result']['loudness']['input_tp']<0
             doc.update(audioMode='gain',audioOffset=4)

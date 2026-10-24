@@ -143,12 +143,18 @@ def create(body):
     return doc
 
 
-def save(ident, body):
+def save(ident, body, internal=None):
     with LOCK:
         current = load(ident)
         if body.get('revision') != current['revision']: raise ValueError('工程已在另一窗口更新；请重新载入，避免覆盖其修改')
         keys = {'video','audio','audioOffset','subtitleShift','gainDb','targetLufs','audioMode','resolution','fps','format','crf','burn','styles','cues'}
         doc = validate({**current, **{k: copy.deepcopy(v) for k,v in body.items() if k in keys}})
+        if internal is None:
+            from video_workflow import reconcile
+            doc=reconcile(current,doc)
+            validate(doc)
+        else:
+            doc.update(copy.deepcopy(internal))
         save_json(folder(ident) / 'History' / f"r{current['revision']:06}.json", current)
         doc['revision'] += 1
         doc['updated'] = datetime.now().isoformat(timespec='seconds')
@@ -190,6 +196,12 @@ def import_captions(ident, body):
     doc = load(ident)
     a = local(body['original'], {'.lrc','.srt','.vtt'})
     b = local(body['translation'], {'.lrc','.srt','.vtt'}) if clean_path(body.get('translation')) else None
+    if body.get('clock') not in ['audio','video']:raise ValueError('请明确选择字幕是混音时间还是视频时间')
+    for source in [a,b]:
+        if source and (source.parent/'caption-timing.json').is_file():
+            sidecar=read_json(source.parent/'caption-timing.json')
+            if sidecar.get('files',{}).get(source.name)==sha(source) and body['clock']=='audio':
+                raise ValueError('这是工作台导出的字幕，已经使用视频时间；请选择「已经对齐视频」，避免再次加音频偏移')
     original = read_captions(a)
     translation = read_captions(b) if b else []
     if not original or not any(r['text'].strip() for r in original):raise ValueError('原文文件没有有效字幕，当前字幕表保留')
@@ -207,11 +219,13 @@ def import_captions(ident, body):
             cues[-1]['end'] = end
         else: cues.append(dict(id=f'L{len(cues)+1:04}',start=start,end=end,original=texts[0],translation=texts[1]))
     doc['cues'] = cues
+    doc['subtitleShift']=0
     for path in [a,b]:
         if path:
             target = folder(ident) / 'Sources' / (uuid.uuid4().hex[:8] + path.suffix.lower())
             target.write_bytes(path.read_bytes())
-    return save(ident, doc)
+    from video_workflow import timing
+    return save(ident, doc,internal={'timing':timing(doc,body['clock'],'import')})
 
 
 def import_legacy(body):
@@ -234,7 +248,10 @@ def import_legacy(body):
         doc['cues'].append(cue)
     snapshot = folder(doc['id']) / 'Sources/legacy_config.toml'
     snapshot.write_bytes(path.read_bytes())
-    result = save(doc['id'], doc)
+    from video_workflow import timing,file_key
+    state={}
+    if audio.is_file():state['alignedAudio']=file_key(doc['audio'])
+    result = save(doc['id'], doc,internal={'timing':timing(doc,'video','legacy'),'workflow':state})
     result['importNote'] = '已复制配置与全部字幕。沿用已对齐音轨时偏移为 0，避免重复移动；原工程保留。长句适配请以准确预览为准。'
     return result
 
@@ -303,4 +320,6 @@ def write_subtitles(doc, dest, duration):
     header+='\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n'
     (dest/'captions.ass').write_text(header+'\n'.join(events)+'\n',encoding='utf-8-sig')
     (dest/'captions.srt').write_text(srt_text(output),encoding='utf-8-sig')
+    save_json(dest/'caption-timing.json',{'clock':'video','audioOffset':doc['audioOffset'],
+             'subtitleShift':doc['subtitleShift'],'files':{name:sha(dest/name) for name in ['captions.ass','captions.srt']}})
     return output

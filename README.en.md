@@ -135,3 +135,5 @@ Open **视频制作** from the workbench for local video sources or optional yt-
 ![Local Video Studio with bilingual caption editing and typography controls](docs/images/video-studio.png)
 
 The screenshot uses a procedurally generated still and test tone in a fictional project. It shows the fast layout view; rendered previews and exports use local FFmpeg/libass.
+
+The video workspace includes six-step readiness checks, recorded caption clocks with one-time offset deltas, and a zoomable dual-language caption strip. Common Chinese fonts have Chinese labels and a separate specimen picker with editable sample text; unavailable fonts are explicitly marked.
