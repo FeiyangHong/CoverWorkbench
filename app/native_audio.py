@@ -33,9 +33,13 @@ CONTROLS = {
 
 
 def plugin_path(kind):
+    return plugin_binary(PLUGINS[kind])
+
+
+def plugin_binary(name):
     base = os.environ.get('COVERWORKBENCH_VST3_DIR')
     base = Path(base) if base else Path(os.environ.get('CommonProgramFiles', 'C:/Program Files/Common Files')) / 'VST3/FabFilter'
-    p = base / (PLUGINS[kind] + '.vst3')
+    p = base / (name + '.vst3')
     return p if p.exists() else None
 
 
@@ -104,6 +108,13 @@ def enqueue(body):
     shape = body.get('shape', 'Bell')
     if shape not in ['Bell', 'High Shelf']:
         raise ValueError('EQ 形状无效')
+    spec = {**info, 'start': start, 'end': end, 'tail': tail, 'plugin': kind,
+            'pluginPath': str(plugin_path(kind)), 'values': values, 'shape': shape,
+            'comparison': comparison, 'ffmpeg': settings.executable('ffmpeg')}
+    return submit(spec)
+
+
+def submit(spec, prepare=None):
     with LOCK:
         if sum(j['status'] in ['queued', 'running'] for j in JOBS.values()) >= 3:
             raise ValueError('已有试听任务正在渲染，请稍候')
@@ -114,9 +125,8 @@ def enqueue(body):
         jid = uuid.uuid4().hex
         folder = CACHE / jid
         folder.mkdir(parents=True)
-        spec = {**info, 'start': start, 'end': end, 'tail': tail, 'plugin': kind,
-                'pluginPath': str(plugin_path(kind)), 'values': values, 'shape': shape,
-                'comparison': comparison, 'ffmpeg': settings.executable('ffmpeg')}
+        if prepare:
+            prepare(folder)
         (folder / 'request.json').write_text(json.dumps(spec, ensure_ascii=False), encoding='utf-8')
         JOBS[jid] = {'id': jid, 'status': 'queued', 'created': time.time()}
         POOL.submit(render, jid, folder)
@@ -127,14 +137,18 @@ def render(jid, folder):
     with LOCK:
         JOBS[jid]['status'] = 'running'
     try:
-        result = subprocess.run([sys.executable, str(ROOT / 'app/native_audio_worker.py'), str(folder)],
-                                capture_output=True, timeout=120, **hidden())
+        script = 'song_mix_worker.py' if spec_mode(folder).startswith('song') else 'native_audio_worker.py'
+        result = subprocess.run([sys.executable, str(ROOT / ('app/' + script)), str(folder)],
+                                capture_output=True, timeout=240, **hidden())
         (folder / 'worker.log').write_bytes(result.stdout + result.stderr)
         if result.returncode:
+            if (folder / 'error.json').is_file():
+                raise ValueError(json.loads((folder / 'error.json').read_text(encoding='utf-8'))['error'])
             raise ValueError('FabFilter 渲染失败；请检查插件授权。详细信息保留在本机 worker.log。')
         data = json.loads((folder / 'result.json').read_text(encoding='utf-8'))
         with LOCK:
-            JOBS[jid].update(status='ready', result={**data, 'a': f'/mix-audio/{jid}/a.wav', 'b': f'/mix-audio/{jid}/b.wav'})
+            urls = {'a': f'/mix-audio/{jid}/a.wav', 'b': f'/mix-audio/{jid}/b.wav'} if 'duration' in data else {}
+            JOBS[jid].update(status='ready', result={**data, **urls})
     except Exception as error:
         with LOCK:
             JOBS[jid].update(status='error', error='插件渲染超时，工作台仍可使用。' if isinstance(error, subprocess.TimeoutExpired) else str(error))
@@ -145,6 +159,10 @@ def job(jid):
         if jid not in JOBS:
             raise ValueError('试听任务不存在，请重新生成')
         return dict(JOBS[jid])
+
+
+def spec_mode(folder):
+    return json.loads((folder / 'request.json').read_text(encoding='utf-8')).get('mode', 'single')
 
 
 def media(jid, name):

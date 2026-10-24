@@ -27,6 +27,7 @@ jobs:
           python tests/git-conventions.py
           python tests/starter-templates.py
           python tests/native-audio.py
+          python tests/song-mix.py
           python tools/release_check.py --for-public-release --ref HEAD
       - name: Install browser test dependencies
         run: |

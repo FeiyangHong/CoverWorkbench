@@ -72,7 +72,7 @@ def output_base(value):
 
 def browse(body):
     kind=body.get('kind')
-    if kind not in ['project','audio','folder']:raise ValueError('无效的文件选择类型')
+    if kind not in ['project','song','audio','folder']:raise ValueError('无效的文件选择类型')
     sort=body.get('sort','modified-desc');folders_first=body.get('foldersFirst',True)
     if sort not in ['modified-desc','modified-asc','created-desc','name-asc','name-desc','size-desc','size-asc']:raise ValueError('无效的排序方式')
     text=clean_path(body.get('path'))
@@ -81,7 +81,7 @@ def browse(body):
     # A typed not-yet-created output folder starts browsing at its nearest parent.
     while not p.exists() and p!=p.parent:p=p.parent
     if not p.is_dir():raise ValueError('找不到可浏览的文件夹')
-    extensions={'.svp','.song'} if kind=='project' else {'.wav','.flac','.aif','.aiff'}
+    extensions={'.song'} if kind=='song' else {'.svp','.song'} if kind=='project' else {'.wav','.flac','.aif','.aiff'}
     entries=[]
     try:
         for f in p.iterdir():

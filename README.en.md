@@ -86,7 +86,7 @@ Setup creates an isolated `.venv` and an empty workspace without modifying SV, S
 
 SV scripts must be installed separately into the editor's script directory and rescanned. See **[Deployment](docs/Deployment.md)** for tool configuration, scripts, template requirements, alternatives when PowerShell scripts are blocked, and migration.
 
-Open **混音指南 / Mixing guide** to find controls by sound goal. With the optional host installed, choose your own vocal file and interval for real local **FabFilter Pro-R 2 / Timeless 3 / Pro-Q 3** A/B renders. Plugin-free browser teaching examples remain available. See the [guide overview](docs/MixingGuide.md) for setup and limits.
+Open **混音指南 / Mixing guide** to find controls by sound goal. The optional local **FabFilter** host supports single-plugin auditions and saved Studio One preset/send/bus snapshots with mapped dry vocals and backing audio. Compare saved settings against parameter edits without changing the Song. Song mode is a static reconstruction; see the [guide overview](docs/MixingGuide.md) for compatibility and validation limits. Plugin-free browser teaching examples remain available.
 
 ## Starter mix templates
 

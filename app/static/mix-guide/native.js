@@ -14,9 +14,9 @@ function seconds(value) {
 const clock = t => `${Math.floor(t/60)}:${(t%60).toFixed(1).padStart(4,'0')}`;
 function mount(root) {
  let catalog=[], pair=null, context=null, nodes=[], playing=false, offset=0, started=0, ab='b', gains=null;
- let current='', revision=0, busy=false, alive=true;
+ let current='', revision=0, busy=false, alive=true, available=false, song=null;
  root.innerHTML=`<div class="mg-audio-heading"><div><span class="mg-eyebrow">YOUR VOICE · REAL PLUGINS</span><h3>用自己的声音，听真实 FabFilter。</h3></div><span class="mg-pill">本机 VST3 渲染</span></div>
- <p class="mg-audio-note">独立加载你已安装并授权的插件。A/B 使用同一人声、同一起止时间。这里是单插件试调，参数不会写入 Studio One 工程。</p>
+ <p class="mg-audio-note">独立加载你已安装并授权的插件。A/B 使用同一人声、同一起止时间。可选单插件或工程预设模式，参数不会写入 Studio One 工程。</p>
  <p id="mgNativeEnvironment" role="status">正在检查本机插件…</p>
  <div class="mg-native-source"><label>分离人声路径<input id="mgNativePath" placeholder="粘贴 WAV / FLAC 路径，支持外层引号" autocomplete="off"></label><button id="mgNativeBrowse" class="mg-secondary">浏览文件</button><button id="mgNativeInspect" class="mg-secondary">读取音频</button></div>
  <p id="mgNativeSourceInfo" class="mg-caption">选择主唱干声更容易判断；也可以使用你从 SV 导出的人声。</p>
@@ -31,6 +31,8 @@ function mount(root) {
  <dialog id="mgNativePicker" class="mg-native-picker" aria-labelledby="mgNativePickerTitle"><div class="mg-audio-heading"><h3 id="mgNativePickerTitle">选择本机人声</h3><button id="mgNativePickerClose" class="mg-secondary">关闭</button></div><div id="mgNativeRoots" class="mg-native-roots"></div><form id="mgNativeNavigate" class="mg-native-source"><input id="mgNativeFolder" aria-label="音频所在文件夹" placeholder="输入文件夹路径"><button class="mg-secondary">前往</button><button id="mgNativeUp" type="button" class="mg-secondary">上一级</button></form><label class="mg-native-sort">排序<select id="mgNativeSort"><option value="modified-desc">修改时间 · 最新在前</option><option value="modified-asc">修改时间 · 最早在前</option><option value="name-asc">名称 · A → Z</option><option value="size-desc">大小 · 从大到小</option></select></label><p id="mgNativePickerStatus" role="status"></p><div id="mgNativeEntries" class="mg-native-entries"></div></dialog>`;
  const $=selector=>root.querySelector(selector), message=text=>$('#mgNativeStatus').textContent=text;
  const duration=()=>pair?.a.duration||0;
+ function setAvailability(value){available=value;updateButton();}
+ function updateButton(){$('#mgNativeRender').disabled=busy||!available||Boolean(song?.active()&&!song.ready);}
  function position(){const time=playing?offset+context.currentTime-started:offset;return Math.max(0,$('#mgNativeLoop').checked?time%(duration()||1):Math.min(time,duration()));}
  function cursor(){const value=position();$('#mgNativeSeek').value=value;$('#mgNativeTime').textContent=`${clock(value)} / ${clock(duration())}`;}
  function stopNodes(){for(const n of nodes){try{n.source.stop();}catch{}n.source.disconnect();n.gain.disconnect();}nodes=[];}
@@ -51,7 +53,7 @@ function mount(root) {
   try {
    const values=Object.fromEntries([...root.querySelectorAll('[data-mg-native-control]')].map(input=>[input.dataset.mgNativeControl,Number(input.value)]));
    const payload={path:$('#mgNativePath').value,start:seconds($('#mgNativeStart').value),end:seconds($('#mgNativeEnd').value),tail:Number($('#mgNativeTail').value),plugin:$('#mgNativePlugin').value,comparison:$('#mgNativeComparison').value,shape:$('#mgNativeShape').value,values};
-   message('正在本机加载真实插件并渲染…');let job=await request('/api/mix-render/local',payload);
+   const inSong=song?.active();const body=inSong?song.payload(payload):payload;message(inSong?'正在恢复工程效果器、发送与总线并渲染 A/B…':'正在本机加载真实插件并渲染…');let job=await request(inSong?'/api/mix-song-render/local':'/api/mix-render/local',body);
    while(['queued','running'].includes(job.status)){await new Promise(resolve=>setTimeout(resolve,500));if(!alive)return;job=await request('/api/mix-job/'+job.id);}
    if(job.status!=='ready')throw Error(job.error||'插件未能完成渲染');
    if(ticket!==revision){message('旧参数的渲染已完成；请按当前设置重新生成。');return;}
@@ -63,8 +65,9 @@ function mount(root) {
    const r=job.result;message(`已完成 · ${r.plugin} 真实 VST3 · 原音频 ${clock(r.start)}–${clock(r.end)} ＋ ${r.tail} 秒尾音 · 48 kHz`);
    const readback=Object.entries(r.parametersB).map(([key,value])=>key+' = '+value).join(' · ');
    $('#mgNativeEvidence').textContent=`插件回读 B：${readback}。${r.comparison==='dry'?'A 为同区间干声。':'A/B 均由真实插件渲染。'}${r.plugin==='Pro-R 2'?'Space 是空间时间，实际尾音还受 Decay Rate / Decay EQ 影响。':''}基于插件默认状态试调，未加载你的 Studio One 整条混音链。切换 A/B 连续播放；回到开头返回所选片段起点。`;
+   if(r.mode==='song'){$('#mgNativeEvidence').textContent=`A：已保存工程的静态设置；B：仅修改选定参数。A ${Object.entries(r.parametersA).map(([k,v])=>k+' = '+v).join(' · ')}。B ${readback}。已恢复 ${r.chainB.length} 个实际效果器及通道增益、静音、发送和总线；只播放映射的声部。${r.enableTarget?'A/B 共同启用了目标静音通道／旁通插件。':''}这是独立宿主静态混音试听，尚未与 Studio One 原生导出做抵消验证。`;if(r.differenceRms<.000001)message($('#mgNativeStatus').textContent+' · A/B 几乎相同，请确认已修改参数、素材流经目标插件，且通道／发送未静音。');}
    cursor();
-  }catch(e){message(e.message);}finally{busy=false;$('#mgNativeRender').disabled=false;}
+  }catch(e){message(e.message);}finally{busy=false;updateButton();}
  };
  $('#mgNativePlay').onclick=async()=>{try{if(playing)pause();else{await context.resume();start();}}catch(e){message(e.message);}};
  $('#mgNativeStop').onclick=()=>{pause();offset=0;cursor();};
@@ -73,14 +76,16 @@ function mount(root) {
  $('#mgNativeMatch').onchange=()=>{if(pair){gains=window.CWMixAudio.levels(pair.a,pair.b,$('#mgNativeMatch').checked);target();}};
  $('#mgNativeVolume').oninput=e=>{e.target.nextElementSibling.textContent=Math.round(Number(e.target.value)*100)+'%';target();};
  $('#mgNativeLoop').onchange=()=>nodes.forEach(n=>n.source.loop=$('#mgNativeLoop').checked);
- let parent=null, browseRevision=0;
- async function browse(path){const ticket=++browseRevision;try{const data=await request('/api/daw-browse/local',{kind:'audio',path,sort:$('#mgNativeSort').value});if(ticket!==browseRevision)return;current=data.path;parent=data.parent;$('#mgNativeFolder').value=current;$('#mgNativeUp').disabled=!parent;$('#mgNativeRoots').innerHTML='';for(const path of data.roots){const b=document.createElement('button');b.textContent=path;b.className='mg-secondary';b.onclick=()=>browse(path);$('#mgNativeRoots').append(b);}$('#mgNativeEntries').innerHTML='';for(const item of data.entries){const button=document.createElement('button');button.className='mg-native-entry';const label=document.createElement('span');label.textContent=(item.directory?'📁  ':'♪  ')+item.name;const stamp=document.createElement('small');stamp.textContent=new Date(item.modified*1000).toLocaleString();button.append(label,stamp);button.onclick=()=>{if(item.directory)browse(item.path);else{$('#mgNativePath').value=item.path;$('#mgNativePicker').close();dirty();inspect().catch(e=>message(e.message));}};$('#mgNativeEntries').append(button);}$('#mgNativePickerStatus').textContent=data.truncated?'仅显示前 1500 项，请进入更具体的文件夹。':data.entries.length+' 个文件 / 文件夹';}catch(e){$('#mgNativePickerStatus').textContent=e.message;}}
- $('#mgNativeBrowse').onclick=()=>{$('#mgNativePicker').showModal();browse($('#mgNativePath').value||current);};
+ let parent=null, browseRevision=0, pickerKind='audio', pickerPick=null;
+ async function browse(path){const ticket=++browseRevision;try{const data=await request('/api/daw-browse/local',{kind:pickerKind,path,sort:$('#mgNativeSort').value});if(ticket!==browseRevision)return;current=data.path;parent=data.parent;$('#mgNativeFolder').value=current;$('#mgNativeUp').disabled=!parent;$('#mgNativeRoots').innerHTML='';for(const path of data.roots){const b=document.createElement('button');b.textContent=path;b.className='mg-secondary';b.onclick=()=>browse(path);$('#mgNativeRoots').append(b);}$('#mgNativeEntries').innerHTML='';for(const item of data.entries){const button=document.createElement('button');button.className='mg-native-entry';const label=document.createElement('span');label.textContent=(item.directory?'📁  ':'♪  ')+item.name;const stamp=document.createElement('small');stamp.textContent=new Date(item.modified*1000).toLocaleString();button.append(label,stamp);button.onclick=()=>{if(item.directory)browse(item.path);else{$('#mgNativePicker').close();if(pickerPick)pickerPick(item.path);else{$('#mgNativePath').value=item.path;dirty();inspect().catch(e=>message(e.message));}}};$('#mgNativeEntries').append(button);}$('#mgNativePickerStatus').textContent=data.truncated?'仅显示前 1500 项，请进入更具体的文件夹。':data.entries.length+' 个文件 / 文件夹';}catch(e){$('#mgNativePickerStatus').textContent=e.message;}}
+ function pick(kind,onPick,path){pickerKind=kind;pickerPick=onPick;$('#mgNativePickerTitle').textContent=kind==='song'?'选择 Studio One 工程':'选择本机音频';$('#mgNativePicker').showModal();browse(path||current);}
+ $('#mgNativeBrowse').onclick=()=>pick('audio',null,$('#mgNativePath').value);
  $('#mgNativePickerClose').onclick=()=>$('#mgNativePicker').close();
  $('#mgNativeUp').onclick=()=>browse(parent);
  $('#mgNativeSort').onchange=()=>browse(current);
  $('#mgNativeNavigate').onsubmit=e=>{e.preventDefault();browse($('#mgNativeFolder').value);};
- request('/api/mix-native').then(data=>{catalog=data.plugins;$('#mgNativePlugin').innerHTML=catalog.map(p=>`<option value="${p.id}" ${p.installed?'':'disabled'}>${esc(p.name)}${p.installed?'':'（未安装）'}</option>`).join('');const available=catalog.find(p=>p.installed);if(available)$('#mgNativePlugin').value=available.id;pluginControls();$('#mgNativeRender').disabled=!(data.engine&&data.decoder&&available);$('#mgNativeEnvironment').textContent=!data.engine?'需安装可选试听引擎：在工作台目录运行 .\\tools\\InstallNativeAudio.ps1':!data.decoder?'请先在环境设置中配置 FFmpeg 和 FFprobe。':!available?'未检测到 FabFilter VST3，请在本机安装并授权。':`已就绪 · ${catalog.filter(p=>p.installed).map(p=>p.name.replace('FabFilter ','')).join(' / ')}`;}).catch(e=>{$('#mgNativeEnvironment').textContent=e.message;});
+ song=window.CWSongMix?.mount(root,{dirty,ready:updateButton,pick});
+ request('/api/mix-native').then(data=>{catalog=data.plugins;$('#mgNativePlugin').innerHTML=catalog.map(p=>`<option value="${p.id}" ${p.installed?'':'disabled'}>${esc(p.name)}${p.installed?'':'（未安装）'}</option>`).join('');const available=catalog.find(p=>p.installed);if(available)$('#mgNativePlugin').value=available.id;pluginControls();const enabled=Boolean(data.engine&&data.decoder&&available);setAvailability(enabled);$('#mgNativeEnvironment').textContent=!data.engine?'需安装可选试听引擎：在工作台目录运行 .\\tools\\InstallNativeAudio.ps1':!data.decoder?'请先在环境设置中配置 FFmpeg 和 FFprobe。':!available?'未检测到 FabFilter VST3，请在本机安装并授权。':`已就绪 · ${catalog.filter(p=>p.installed).map(p=>p.name.replace('FabFilter ','')).join(' / ')}`;}).catch(e=>{$('#mgNativeEnvironment').textContent=e.message;});
  function tick(){if(!alive)return;if(playing&&!$('#mgNativeLoop').checked&&offset+context.currentTime-started>=duration()){pause();offset=0;}if(pair)cursor();requestAnimationFrame(tick);}tick();window.addEventListener('pagehide',pause);
  return {pause,destroy(){alive=false;pause();context?.close();}};
 }

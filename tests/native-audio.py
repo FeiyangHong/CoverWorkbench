@@ -88,6 +88,11 @@ def main():
                 assert np.argmax(abs(effect(impulse, rate)[0])) == 100, 'Zero-latency EQ alignment changed'
             results.append({'plugin': plugin, 'comparison': comparison, 'differenceRms': data['differenceRms']})
         assert hashlib.sha256(source.read_bytes()).hexdigest() == digest, 'Input was modified'
+        from pedalboard import load_plugin
+        import native_audio_worker as worker
+        small = load_plugin(str(host.plugin_path('reverb')))
+        worker.configure(small, {'plugin': 'reverb', 'values': {'space': .4, 'predelay': 30, 'mix': 25}})
+        assert abs(float(small.space) - 400) < 5, 'Subsecond Space must use the plugin milliseconds range'
     print('PASS: real FabFilter render, parameter readbacks, aligned lengths, EQ impulse alignment, tails, headroom and unchanged input')
     print(json.dumps(results))
 

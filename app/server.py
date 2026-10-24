@@ -5,7 +5,7 @@ import json, mimetypes, os, re, sys, time, threading
 import settings
 settings.initialize()
 from core import *
-import lyrics, live, workflow, daw, desktop, projects, native_audio
+import lyrics, live, workflow, daw, desktop, projects, native_audio, song_mix
 live.prepare_manifest()
 
 PORT=int(os.environ.get("COVERWORKBENCH_PORT", "8765"))
@@ -130,6 +130,9 @@ class Handler(BaseHTTPRequestHandler):
             body=json.loads(self.rfile.read(size));parts=urlsplit(self.path).path.strip('/').split('/')
             if len(parts)!=3 or parts[0]!='api':return self.respond({'error':'Route not found'},404)
             action,pid=parts[1:]
+            if action=='mix-song-inspect':return self.respond(song_mix.public(song_mix.read(body.get('song'))))
+            if action=='mix-song-probe':return self.respond(song_mix.enqueue(body,True),202)
+            if action=='mix-song-render':return self.respond(song_mix.enqueue(body),202)
             if action=='mix-inspect':return self.respond(native_audio.inspect(body))
             if action=='mix-render':return self.respond(native_audio.enqueue(body),202)
             if action=='project-import':
