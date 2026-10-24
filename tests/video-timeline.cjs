@@ -8,6 +8,7 @@ const {chromium}=require('playwright');
   await page.goto(process.argv[2]+'/video/index.html');
   await page.locator('#new').click();await page.locator('#newName').fill('Timeline Interactions');await page.locator('#promptForm button[type=submit]').click();
   await page.locator('#name').filter({hasText:'Timeline Interactions'}).waitFor();
+  await page.locator('[data-step="mv"]').waitFor();
   const lane=key=>page.locator(`.lane-${key} [data-caption="A"]`);
   const ranges=()=>page.evaluate(()=>{const r=window.CWVideoStudio.get().doc.cues[0],t=window.CWCaptionTiming;return {original:t.get(r,'original'),translation:t.get(r,'translation')};});
   async function reset(independent=false){
@@ -20,7 +21,8 @@ const {chromium}=require('playwright');
    },independent);
    await page.locator('#captionLink').uncheck();await page.locator('#captionSnap').check();
    await page.locator('#captionZoom').selectOption('4');
-   await lane('original').scrollIntoViewIfNeeded();await page.locator('#captionScroll').evaluate(el=>el.scrollLeft=0);
+   // The viewport survives ResizeObserver redraws; individual caption blocks do not.
+   await page.locator('#captionScroll').scrollIntoViewIfNeeded();await page.locator('#captionScroll').evaluate(el=>el.scrollLeft=0);
   }
   async function resizeEnd(target,alt=false){
    const edge=lane('original').locator('[data-edge="end"]'),box=await edge.boundingBox();
@@ -82,7 +84,7 @@ const {chromium}=require('playwright');
   await page.evaluate(()=>{const p=window.CWVideoStudio.player;delete p.currentTime;delete p.paused;});
   const other=await context.newPage();await other.goto(page.url());await other.waitForFunction(()=>window.CWVideoStudio?.get().doc&&document.querySelector('#captionLink')?.checked&&!document.querySelector('#captionAutoFollow').checked&&!document.querySelector('#captionSnap').checked);
   if(await other.locator('#captionAutoFollow').isChecked()||await other.locator('#captionSnap').isChecked()||!await other.locator('#captionLink').isChecked())throw Error('Timeline preferences were not restored');await other.close();
-  await page.setViewportSize({width:390,height:844});await lane('original').scrollIntoViewIfNeeded();await lane('original').focus();await page.keyboard.press('F2');await page.locator('#captionTextInput').waitFor();
+  await page.setViewportSize({width:390,height:844});await page.locator('#captionScroll').scrollIntoViewIfNeeded();await lane('original').focus();await page.keyboard.press('F2');await page.locator('#captionTextInput').waitFor();
   if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2))throw Error('Timeline/editor overflows mobile viewport');
   if(process.env.CW_TIMELINE_SCREENSHOTS)await page.screenshot({path:process.env.CW_TIMELINE_SCREENSHOTS+'-mobile.png',fullPage:true});
   await page.locator('#captionTextCancel').click();
