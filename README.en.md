@@ -74,6 +74,8 @@ cd CoverWorkbench
 
 Open <http://127.0.0.1:8765/>:
 
+Use **⏻ 彻底退出 / Exit** at the top right to stop the local server when finished. Active tasks block exit until complete. Restart through the desktop shortcut or `Start.vbs`.
+
 1. Use **环境设置 / Environment settings** to select local tools and your Songs directory. Choose a bundled starter in the Studio One page, or register your own mix template.
 2. Use **导入工程 / Import project** to select a saved SVP, title and language. You can also use the Studio One builder directly.
 3. Open the work copy in SV, edit and save before reading it from the workbench. After rendering, use the checks and delivery tools.

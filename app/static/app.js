@@ -121,7 +121,8 @@ async function pollLive(){
  try{const r=await api('/api/live/'+id);if(id!==pid||editorBusy||sequence!==bundle.live?.sequence)return;const old=JSON.stringify(bundle.liveNotes?.[selected]),connection=bundle.live?.selected;bundle.live=r.live;bundle.liveNotes=r.notes;renderLive();const edited=document.activeElement?.closest('#noteDetail');if(!edited&&(connection!==r.live.selected||old!==JSON.stringify(r.notes[selected])))renderNote();draw()}catch(e){console.warn('SV bridge',e.message)}finally{pollLive.busy=false}
 }
 $('#livePause').onclick=async()=>{try{await api('/api/live/'+pid,{verb:'pause'});await pollLive()}catch(e){toast(e.message)}};
-setInterval(pollLive,1500);
+const livePolling=setInterval(pollLive,1500);
+window.addEventListener('cw-workbench-exit',()=>{clearInterval(livePolling);audio.pause();},{once:true});
 function renderLyricTools(){
  let container=$('#lyricTools');if(!container){container=document.createElement('div');container.id='lyricTools';container.className='panel lyric-tools';$('#lyrics .lyrics-layout').before(container)}
  container.innerHTML=`<span class="eyebrow">LYRIC DESK</span><h3>下载歌词，自动整理读音</h3><p class="source-meta">优先读取 MusicLyricApp 缓存；也可搜索网易云或导入 TXT / LRC。选择歌手和版本后自动保存原文、已有译文与罗马音。没有罗马音的日语歌词生成机器读音，仍需核对汉字特殊唱法。</p><div class="source-row"><input id="lyricQuery" type="text" aria-label="歌词搜索词" value="${escapeHTML(bundle.project.title+' '+bundle.project.artist)}"><button id="searchLyrics" class="button ghost">在线搜索</button><button id="refreshLyricsCache" class="button ghost">刷新工具缓存</button><label class="button ghost">导入 TXT / LRC<input id="lyricFile" type="file" accept=".txt,.lrc" hidden></label></div><div id="lyricCandidates"></div><details><summary>粘贴原文（可含 LRC 时间）</summary><textarea id="lyricImport" aria-label="导入歌词原文" placeholder="粘贴你找到的歌词"></textarea><button id="buildLyricsText" class="button ghost">整理这份歌词</button></details><div id="lyricPackage"></div>`;

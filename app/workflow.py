@@ -4,6 +4,7 @@ import copy, json, math, os, queue, re, shutil, subprocess, threading, time, uui
 from core import ROOT, read_json, save_json, sha, srt_text, subtitle_checks
 
 import settings
+import lifecycle
 STORE = ROOT / 'runtime/workflow'
 STORE.mkdir(parents=True, exist_ok=True)
 GUARD = threading.RLock()
@@ -140,6 +141,10 @@ def video(j):
     log=out/f'{prefix}_task.log';(out/'task.log').rename(log);add_file(j,log,'任务日志')
 
 def enqueue(pid, body, watcher=False):
+    with lifecycle.operation('提交交付任务'):
+        return _enqueue(pid,body,watcher)
+
+def _enqueue(pid, body, watcher=False):
     p=project(pid); kind=body.get('kind')
     if kind not in ['delivery','video']:raise ValueError('Unknown task')
     default=p['audio'].get('mix',{}).get('original','')
@@ -216,16 +221,17 @@ def watch_tick(now=None):
 def worker():
     while True:
         ident=PENDING.get(); j=JOBS[ident]
-        try:
-            update(j,status='running',message='任务开始')
-            (delivery if j['kind']=='delivery' else video)(j)
-            update(j,status='completed',progress=100,message='完成；可下载结果')
-        except Exception as e:
-            update(j,status='failed',message=str(e))
-            log=Path(j['outputDir'])/'task.log'
-            if log.exists():
-                dest=log.with_name(j['id']+'_task.log');log.rename(dest);add_file(j,dest,'失败日志')
-        finally:PENDING.task_done()
+        with lifecycle.operation('交付任务'):
+            try:
+                update(j,status='running',message='任务开始')
+                (delivery if j['kind']=='delivery' else video)(j)
+                update(j,status='completed',progress=100,message='完成；可下载结果')
+            except Exception as e:
+                update(j,status='failed',message=str(e))
+                log=Path(j['outputDir'])/'task.log'
+                if log.exists():
+                    dest=log.with_name(j['id']+'_task.log');log.rename(dest);add_file(j,dest,'失败日志')
+            finally:PENDING.task_done()
 
 def start():
     global STARTED

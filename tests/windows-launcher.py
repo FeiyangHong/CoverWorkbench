@@ -36,6 +36,16 @@ def main():
             assert int((dest/'runtime/server.pid').read_text())==health['pid']
             run('Start.ps1','-NoBrowser')  # Reuses the same owned server.
             with urllib.request.urlopen(f'http://127.0.0.1:{port}/api/health',timeout=5) as response:assert json.load(response)['pid']==health['pid']
+            with urllib.request.urlopen(f'http://127.0.0.1:{port}/api/lifecycle',timeout=5) as response:service=json.load(response)
+            req=urllib.request.Request(f'http://127.0.0.1:{port}/api/shutdown/local',data=json.dumps({'confirm':True,'instance':service['instance']}).encode(),headers={'Content-Type':'application/json'})
+            with urllib.request.urlopen(req,timeout=5) as response:assert response.status==202
+            import time
+            for _ in range(100):
+                if not (dest/'runtime/server.pid').exists():break
+                time.sleep(.1)
+            assert not (dest/'runtime/server.pid').exists(), 'Web exit must clean its owned launcher PID file'
+            run('Start.ps1','-NoBrowser')
+            with urllib.request.urlopen(f'http://127.0.0.1:{port}/api/health',timeout=5) as response:assert json.load(response)['ok']
         finally:
             run('Stop.ps1')
         assert not (dest/'runtime/server.pid').exists()

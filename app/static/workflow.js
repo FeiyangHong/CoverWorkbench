@@ -55,4 +55,5 @@ $('#submitDelivery').onclick=()=>submitWork('delivery',$('#submitDelivery'));
 $('#submitVideo').onclick=()=>submitWork('video',$('#submitVideo'));
 $('#refreshJobs').onclick=()=>refreshWorkflow().catch(e=>toast(e.message));
 $('#watchEnabled').onchange=async()=>{try{await api('/api/watcher/'+pid,{enabled:$('#watchEnabled').checked});await refreshWorkflow()}catch(e){toast(e.message);refreshWorkflow()}};
-setInterval(()=>{if(bundle&&!$('#workflow').hidden)refreshWorkflow().catch(()=>{})},2500);
+const workflowPolling=setInterval(()=>{if(bundle&&!$('#workflow').hidden)refreshWorkflow().catch(()=>{})},2500);
+window.addEventListener('cw-workbench-exit',()=>clearInterval(workflowPolling),{once:true});

@@ -5,7 +5,7 @@ import json, mimetypes, os, re, sys, time, threading
 import settings
 settings.initialize()
 from core import *
-import lyrics, live, workflow, daw, desktop, projects, native_audio, song_mix
+import lyrics, live, workflow, daw, desktop, projects, native_audio, song_mix, lifecycle
 live.prepare_manifest()
 
 PORT=int(os.environ.get("COVERWORKBENCH_PORT", "8765"))
@@ -87,9 +87,17 @@ class Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError,ConnectionResetError):pass
     def do_HEAD(self):self.do_GET()
     def do_GET(self):
+        if urlsplit(self.path).path in ['/api/lifecycle','/api/health']:
+            return self._get()
+        try:
+            with lifecycle.operation():
+                return self._get()
+        except lifecycle.Stopping as e:return self.respond({'error':str(e)},503)
+    def _get(self):
         if not self.allowed():return self.respond({'error':'Local access only'},403)
         try:
             u=urlsplit(self.path);path=unquote(u.path);parts=path.strip('/').split('/')
+            if path=='/api/lifecycle':return self.respond(lifecycle.status())
             if path=='/api/settings':return self.respond(settings.status())
             if path=='/api/mix-native':return self.respond(native_audio.status())
             if parts[:2]==['api','mix-job'] and len(parts)==3:return self.respond(native_audio.job(parts[2]))
@@ -120,6 +128,13 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError,KeyError,IndexError) as e:return self.respond({'error':str(e)},400)
         except Exception as e:return self.respond({'error':str(e)},500)
     def do_POST(self):
+        if urlsplit(self.path).path=='/api/shutdown/local':
+            return self._post()
+        try:
+            with lifecycle.operation():
+                return self._post()
+        except lifecycle.Stopping as e:return self.respond({'error':str(e)},503)
+    def _post(self):
         if not self.allowed():return self.respond({'error':'Local access only'},403)
         origin=self.headers.get('Origin')
         if origin and origin not in {f'http://127.0.0.1:{PORT}',f'http://localhost:{PORT}'}:return self.respond({'error':'Origin rejected'},403)
@@ -130,6 +145,18 @@ class Handler(BaseHTTPRequestHandler):
             body=json.loads(self.rfile.read(size));parts=urlsplit(self.path).path.strip('/').split('/')
             if len(parts)!=3 or parts[0]!='api':return self.respond({'error':'Route not found'},404)
             action,pid=parts[1:]
+            if action=='shutdown' and pid=='local':
+                if not isinstance(body,dict) or body.get('confirm') is not True:
+                    return self.respond({'error':'请先确认退出本机工作台。'},400)
+                result,code=lifecycle.request_exit(body.get('instance'))
+                if code!=202:return self.respond(result,code)
+                self.close_connection=True
+                try:
+                    self.respond(result,202)
+                    self.wfile.flush()
+                finally:
+                    threading.Thread(target=self.server.shutdown,daemon=True,name='workbench-exit').start()
+                return
             if action=='mix-song-inspect':return self.respond(song_mix.public(song_mix.read(body.get('song'))))
             if action=='mix-song-probe':return self.respond(song_mix.enqueue(body,True),202)
             if action=='mix-song-render':return self.respond(song_mix.enqueue(body),202)
@@ -216,6 +243,14 @@ if __name__=='__main__':
         server=ThreadingHTTPServer(('127.0.0.1',PORT),Handler)
         workflow.start()
         print(f'CoverWorkbench http://127.0.0.1:{PORT}',flush=True)
-        server.serve_forever()
+        try:
+            server.serve_forever()
+        finally:
+            server.server_close()
+            native_audio.POOL.shutdown(wait=True)
+            pidfile=ROOT/'runtime/server.pid'
+            if pidfile.is_file() and pidfile.read_text().strip()==str(os.getpid()):
+                pidfile.unlink()
+            print('CoverWorkbench stopped.',flush=True)
     except OSError as e:
         print(f'无法启动：{e}。若已运行，请打开 http://127.0.0.1:{PORT}',flush=True);sys.exit(1)

@@ -96,9 +96,25 @@ def main():
                 text = script.read_text(encoding='utf-8')
                 assert '__CW_ROOT__' not in text
                 assert dest.as_posix() in text
+            # Exit is POST-only, instance-bound, and subject to the same origin checks.
+            service = request('/api/lifecycle')
+            for payload, headers, expected in [({'confirm': True, 'instance': service['instance']}, {'Content-Type': 'application/json', 'Origin': 'https://example.com'}, 403),
+                                                ({'confirm': False, 'instance': service['instance']}, {'Content-Type': 'application/json'}, 400),
+                                                ({'confirm': True, 'instance': 'stale'}, {'Content-Type': 'application/json'}, 409)]:
+                try: request('/api/shutdown/local', payload, headers)
+                except urllib.error.HTTPError as error: assert error.code == expected
+                else: raise AssertionError('Invalid shutdown accepted')
+            if args.browser:
+                subprocess.run(['node', str(ROOT / 'tests/lifecycle-ui.cjs'), base], check=True, cwd=ROOT)
+            else:
+                assert request('/api/shutdown/local', {'confirm': True, 'instance': service['instance']})['state'] == 'stopping'
+            assert process.wait(timeout=15) == 0, 'Web exit must terminate the actual server process'
+            with socket.socket() as listener:
+                listener.bind(('127.0.0.1', port))
+            print('PASS: clean process exit and released localhost port')
             print('PASS: clean relocated startup, import, lyrics, settings, optional dependencies, origin checks, SV script installation' + (', desktop/mobile browser flow' if args.browser else ''))
         finally:
-            process.terminate()
+            if process.poll() is None:process.terminate()
             try: process.wait(timeout=10)
             except subprocess.TimeoutExpired: process.kill(); process.wait()
             log.close()

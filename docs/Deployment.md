@@ -14,6 +14,8 @@ If Python is not detected, use `Setup.ps1 -PythonExe 'C:\Path\To\python.exe'`. S
 
 Open <http://127.0.0.1:8765/>. `Start.vbs` is the quiet Windows launcher. `Stop.ps1` stops only the recorded server process for this checkout. Do not close or stop a server while it is rendering delivery jobs. A second installation must use another port: set `$env:COVERWORKBENCH_PORT='8766'` before starting. Native SV bridging uses local files, not that port.
 
+Closing the browser page leaves the local server running. To stop it, click **⏻ 彻底退出 / Exit** at the top right of the main workbench or standalone mixing guide, then confirm. Exit is blocked while audition, delivery/video, or other in-flight work is present; it does not force-cancel those tasks. Once accepted, the server rejects new work, closes its port, terminates its process and removes its own launcher PID record. Open workbench pages stop preview audio and display restart instructions. SV and Studio One keep running, and project files and render caches are retained. To use the app again, launch the desktop shortcut or `Start.vbs`; visiting the old URL alone cannot restart a stopped server.
+
 ## First use / 首次使用
 
 1. Open **环境设置 / Environment settings**. Select your FFmpeg and FFprobe executable files, Studio One executable, Songs directory and optional MusicLyricApp cache. Empty executable fields use PATH detection. Settings go to ignored `config/settings.local.json` and take effect on the next request.

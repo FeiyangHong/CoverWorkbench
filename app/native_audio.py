@@ -12,6 +12,7 @@ import threading
 import time
 import uuid
 import settings
+import lifecycle
 
 ROOT = settings.ROOT
 CACHE = ROOT / 'runtime/mix-auditions'
@@ -115,6 +116,11 @@ def enqueue(body):
 
 
 def submit(spec, prepare=None):
+    with lifecycle.operation('提交试听任务'):
+        return _submit(spec, prepare)
+
+
+def _submit(spec, prepare=None):
     with LOCK:
         if sum(j['status'] in ['queued', 'running'] for j in JOBS.values()) >= 3:
             raise ValueError('已有试听任务正在渲染，请稍候')
@@ -134,6 +140,11 @@ def submit(spec, prepare=None):
 
 
 def render(jid, folder):
+    with lifecycle.operation('试听任务'):
+        return _render(jid, folder)
+
+
+def _render(jid, folder):
     with LOCK:
         JOBS[jid]['status'] = 'running'
     try:
