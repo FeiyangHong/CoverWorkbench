@@ -40,6 +40,9 @@ def reconcile(current,doc):
     """Materialized video timestamps follow the audio by the delta, exactly once."""
     state=copy.deepcopy(current.get('timing',{}))
     if doc.get('cues') and state.get('clock')=='audio':
+        # A music-linked document already has a known audio clock before its first MV.
+        if state.get('source')=='music-project' and not current.get('video') and file_key(doc.get('video')) and state.get('audioKey')==file_key(doc.get('audio')):
+            state['videoKey']=file_key(doc['video'])
         linked=(state.get('audioKey')==file_key(doc.get('audio')) and state.get('videoKey')==file_key(doc.get('video')))
         if linked:
             delta=round(doc['audioOffset']-state['appliedAudioOffset'],6)

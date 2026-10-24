@@ -17,6 +17,7 @@ function effective(n){return {...n,...bundle.state.edits[n.id],...(bundle.live?.
 function currentFlags(){return bundle.flags.filter(f=>f.track===Number(trackId))}
 async function loadProject(id){
  const token=++requestNumber;audio.pause();pid=id;selected=null;selectedFlag=null;segment=null;rangeStart=0;
+ window.dispatchEvent(new CustomEvent('cw-music-project-loading',{detail:{id}}));
  const b=await api('/api/project/'+id);if(token!==requestNumber)return;bundle=b;
  const tracks=b.parsed.tracks;trackId=(tracks.find(t=>/POPY主声|ROSE主声/.test(t.name))||tracks.find(t=>t.name==='主声')||tracks[0])?.id;
  $('#projectCount').textContent=projects.length;$('#projects').innerHTML=projects.map(p=>`<button class="project-item ${p.id===pid?'active':''}" data-project="${p.id}"><span class="cover ${p.id}">${p.id==='hoshi'?'星':p.id==='stella'?'S':p.id==='ray'?'r':escapeHTML(p.title.slice(0,1))}</span><span><strong>${escapeHTML(p.title)}</strong><small>${escapeHTML(p.artist)}</small></span></button>`).join('');
@@ -29,7 +30,7 @@ async function loadProject(id){
  $('#audioSelect').innerHTML=Object.keys(b.project.audio).map(k=>`<option value="${k}">${roles[k]||k}</option>`).join('');
  $('#audioSelect').value=b.project.audio.lead?'lead':Object.keys(b.project.audio)[0];setAudio();
  $('#duration').textContent='/ '+time(b.project.duration);subtitleDraft=structuredClone(b.state.subtitles);
- renderStats();renderFlags();renderNote();draw();renderComparison();renderLyrics();renderFiles();renderLive();
+ renderStats();renderFlags();renderNote();draw();renderComparison();renderLyrics();renderFiles();renderLive();window.dispatchEvent(new CustomEvent('cw-music-project-change',{detail:{id:pid}}));
 }
 function setAudio(preserve=false){if(!Object.keys(bundle.project.audio).length){audio.removeAttribute('src');audio.load();$('#play').disabled=true;return}$('#play').disabled=false;const role=$('#audioSelect').value,position=preserve?audio.currentTime:rangeStart,resume=preserve&&!audio.paused;pendingSeek=position;audio.onloadedmetadata=()=>{audio.currentTime=Math.min(pendingSeek??position,audio.duration||0);pendingSeek=null;if(resume)audio.play().catch(playbackError);updateTransport();draw()};audio.src=`/media/${pid}/${role}`;audio.load()}
 function renderStats(){

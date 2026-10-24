@@ -15,7 +15,7 @@ function publish(data){
   if(!data.projects.length){const note=document.createElement('p');note.className='video-library-empty';note.textContent='新建视频工程，开始第一支作品。';list.append(note);}
   for(const p of data.projects){const b=document.createElement('button');b.type='button';b.className='project-item'+(p.id===data.id?' active':'');b.dataset.videoProject=p.id;const badge=document.createElement('span');badge.className='cover video-cover';badge.textContent='▷';const label=document.createElement('span'),name=document.createElement('strong'),detail=document.createElement('small');name.textContent=p.name;detail.textContent=p.id===data.id?(data.dirty?'有未保存修改':'正在编辑 · r'+p.revision):'视频工程 · r'+p.revision;label.append(name,detail);b.append(badge,label);b.onclick=()=>navigate(p.id);list.append(b);}
  }
- chrome();if(active&&!navigating&&(!pendingProject||data.id===pendingProject)&&data.id)route('video',data.id,true);
+ chrome();window.dispatchEvent(new CustomEvent('cw-video-project-state',{detail:data}));if(active&&!navigating&&(!pendingProject||data.id===pendingProject)&&data.id)route('video',data.id,true);
 }
 async function navigate(id){
  pendingProject=id;if(!editor||navigating)return;navigating=true;let failed=false;
@@ -37,6 +37,9 @@ function activate(tab,write=true){
 }
 window.CWVideoHost={
  update:publish,
+ state:()=>metadata,
+ async prepare(id){if(editor?.state().id===id&&editor.state().dirty)await editor.save();},
+ async reload(id){if(editor?.state().id===id)await editor.reload();else this.open(id);},
  ready(api){editor=api;$('#videoLoading').hidden=true;$('#videoNewProject').disabled=false;editor.visible(active);if(pendingProject&&editor.state().id!==pendingProject)navigate(pendingProject);else pendingProject=null;publish(editor.state());},
  open(id){if(id)pendingProject=id;$('.tabs [data-tab="video"]').click();if(id&&editor)navigate(id);}
 };

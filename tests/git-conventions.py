@@ -12,7 +12,7 @@ def main():
             result=git('hook','run','commit-msg','--',str(p))
             assert (result.returncode==0)==valid,(title,result.stderr)
     checks['commitTitleValidAndInvalidCases']=9
-    samples=['config/projects.json','data/projects/hoshi.json','projects/studio-one/example/example.song','models/checkpoint.pt','runtime/server.pid','logs/server.log','reports/test.json','work/scratch.txt','vendor/GAME/infer.py','integrations/studio-one/sv2-host.json','assets/icons/preview.html','example.wav','.env']
+    samples=['config/projects.json','config/video-links.local.json','config/video-links.local.previous.json','data/projects/hoshi.json','projects/studio-one/example/example.song','models/checkpoint.pt','runtime/server.pid','logs/server.log','reports/test.json','work/scratch.txt','vendor/GAME/infer.py','integrations/studio-one/sv2-host.json','assets/icons/preview.html','example.wav','.env']
     result=git('check-ignore','-z','--stdin',input=('\0'.join(samples)+'\0').encode())
     assert set(result.stdout.decode().strip('\0').split('\0'))==set(samples)
     checks['localAndGeneratedPathsIgnored']=len(samples)

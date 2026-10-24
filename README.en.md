@@ -30,6 +30,7 @@ CoverWorkbench handles repeatable preparation and delivery tasks while detailed 
 | Repetitive SV tasks | Native scripts for phrase lyrics, phrase reuse and group-level base voice presets | Pitch, rhythm, voice bank and expressive details |
 | Studio One setup | Build an independent Song from a compatible local template, mapping vocal outputs and preserving effects and routing | Template choice and mix adjustments for the new song |
 | Mixing reference | Find controls by sound goal, with clear control maps, cropped references and reverb/delay/EQ A/B demos | Audition and adjust in Studio One |
+| Video production | [Link each song to its video, carry over its final mix and saved bilingual captions, preview and export independent versions](docs/VideoStudio.md) | Timing, translation and final visual checks |
 | Checks and delivery | Use local FFmpeg for audio checks, delivery packages and video audio replacement | Final listening, visuals and publication |
 
 ## Preview

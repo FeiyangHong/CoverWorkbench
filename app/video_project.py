@@ -144,13 +144,16 @@ def warnings(doc, duration=None):
     return result
 
 
-def create(body):
+def create(body, internal=None):
     name = str(body.get('name', 'New Video')).strip()
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}', name) or name.endswith(('.', ' ')) or name.split('.')[0].upper() in {'CON','PRN','AUX','NUL',*[f'COM{i}' for i in range(1,10)],*[f'LPT{i}' for i in range(1,10)]}:
         raise ValueError('工程名请使用英文、数字、空格、下划线或连字符')
     doc = dict(name=name, video='', audio='', audioOffset=0, subtitleShift=0, gainDb=0, targetLufs=-14,
                audioMode='gain', resolution='source', fps='source', format='mp4', crf=18, burn=True,
                styles={'original': dict(STYLE), 'translation': {**STYLE, 'size':44, 'y':1026}}, cues=[], provenance=[])
+    if internal is not None:
+        doc.update(copy.deepcopy(internal))
+        validate(doc)
     with LOCK:
         BASE.mkdir(parents=True, exist_ok=True)
         dest = BASE / name
