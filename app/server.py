@@ -6,6 +6,7 @@ import settings
 settings.initialize()
 from core import *
 import lyrics, live, workflow, daw, desktop, projects, native_audio, song_mix, lifecycle
+import video_project, video_jobs
 live.prepare_manifest()
 
 PORT=int(os.environ.get("COVERWORKBENCH_PORT", "8765"))
@@ -98,6 +99,12 @@ class Handler(BaseHTTPRequestHandler):
         try:
             u=urlsplit(self.path);path=unquote(u.path);parts=path.strip('/').split('/')
             if path=='/api/lifecycle':return self.respond(lifecycle.status())
+            if path=='/api/video-status':return self.respond({'projects':video_project.listing(),'dependencies':video_jobs.dependencies()})
+            if parts[:2]==['api','video-project'] and len(parts)==3:return self.respond({'project':video_project.load(parts[2]),'jobs':video_jobs.history(parts[2])})
+            if parts[:2]==['api','video-history'] and len(parts)==3:return self.respond(video_jobs.history(parts[2]))
+            if parts[:2]==['api','video-job'] and len(parts)==3:return self.respond(video_jobs.job(parts[2]))
+            if parts[0]=='video-source' and len(parts)==3:return self.file(video_jobs.source(parts[1],parts[2]))
+            if parts[0]=='video-output' and len(parts)==4:return self.file(video_jobs.media(parts[1],parts[2],parts[3]),not parts[3].startswith('preview.'))
             if path=='/api/settings':return self.respond(settings.status())
             if path=='/api/mix-native':return self.respond(native_audio.status())
             if parts[:2]==['api','mix-job'] and len(parts)==3:return self.respond(native_audio.job(parts[2]))
@@ -142,9 +149,16 @@ class Handler(BaseHTTPRequestHandler):
         try:
             size=int(self.headers.get('Content-Length','0'))
             if size>2_000_000:return self.respond({'error':'Request too large'},413)
-            body=json.loads(self.rfile.read(size));parts=urlsplit(self.path).path.strip('/').split('/')
+            body=json.loads(self.rfile.read(size));parts=unquote(urlsplit(self.path).path).strip('/').split('/')
             if len(parts)!=3 or parts[0]!='api':return self.respond({'error':'Route not found'},404)
             action,pid=parts[1:]
+            if action=='video-create':return self.respond(video_project.create(body),201)
+            if action=='video-save':return self.respond(video_project.save(pid,body))
+            if action=='video-import':return self.respond(video_project.import_legacy(body),201)
+            if action=='video-captions':return self.respond(video_project.import_captions(pid,body))
+            if action=='video-sv':return self.respond(video_project.sv_anchors(body))
+            if action=='video-submit':return self.respond(video_jobs.submit(pid,body),202)
+            if action=='video-cancel':return self.respond(video_jobs.cancel(pid))
             if action=='shutdown' and pid=='local':
                 if not isinstance(body,dict) or body.get('confirm') is not True:
                     return self.respond({'error':'请先确认退出本机工作台。'},400)
@@ -248,6 +262,7 @@ if __name__=='__main__':
         finally:
             server.server_close()
             native_audio.POOL.shutdown(wait=True)
+            video_jobs.POOL.shutdown(wait=True)
             pidfile=ROOT/'runtime/server.pid'
             if pidfile.is_file() and pidfile.read_text().strip()==str(os.getpid()):
                 pidfile.unlink()

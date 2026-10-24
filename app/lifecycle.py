@@ -33,15 +33,18 @@ def status():
     # Imports here avoid a lifecycle/workflow import cycle.
     import native_audio
     import workflow
+    import video_jobs
     with LOCK:
         with native_audio.LOCK:
             auditions = sum(j['status'] in ['queued', 'running'] for j in native_audio.JOBS.values())
         with workflow.GUARD:
             deliveries = sum(j['status'] in ['queued', 'running'] for j in workflow.JOBS.values())
+        with video_jobs.LOCK:
+            videos = sum(j['status'] in ['queued', 'running'] for j in video_jobs.JOBS.values())
         operations = dict(ACTIVE)
         return {'instance': INSTANCE, 'state': 'stopping' if STOPPING else 'running',
-                'canExit': not STOPPING and not operations and not auditions and not deliveries,
-                'auditions': auditions, 'deliveries': deliveries, 'operations': operations}
+                'canExit': not STOPPING and not operations and not auditions and not deliveries and not videos,
+                'auditions': auditions, 'deliveries': deliveries, 'videos': videos, 'operations': operations}
 
 
 def request_exit(instance):

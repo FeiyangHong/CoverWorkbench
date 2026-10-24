@@ -64,6 +64,7 @@ def main():
             else: raise AssertionError('Server timeout')
             assert Path(health['root']) == dest
             assert request('/api/projects') == []
+            assert request('/api/video-status')['projects'] == []
             assert {t['id'] for t in request('/api/daw/status')['templates']} == {'studio-vocal-plate', 'studio-vocal-delay'}
             assert request('/api/settings')['settings']['ffmpeg'] == ''
             if args.browser:
@@ -105,6 +106,7 @@ def main():
                 except urllib.error.HTTPError as error: assert error.code == expected
                 else: raise AssertionError('Invalid shutdown accepted')
             if args.browser:
+                subprocess.run(['node', str(ROOT / 'tests/video-ui.cjs'), base], check=True, cwd=ROOT)
                 subprocess.run(['node', str(ROOT / 'tests/lifecycle-ui.cjs'), base], check=True, cwd=ROOT)
             else:
                 assert request('/api/shutdown/local', {'confirm': True, 'instance': service['instance']})['state'] == 'stopping'

@@ -35,7 +35,7 @@ def main():
     paths = subprocess.check_output(['git', 'ls-files', '-z'], cwd=ROOT).decode().strip('\0').split('\0')
     errors = []
     blocked = {'data', 'projects', 'models', 'runtime', 'logs', 'reports', 'work', 'vendor', 'outputs', 'node_modules', '.venv'}
-    private_extensions = {'.svp', '.song', '.vstpreset', '.wav', '.flac', '.mp3', '.mp4', '.lrc', '.srt', '.ckpt', '.pt', '.pth', '.safetensors', '.pem', '.key'}
+    private_extensions = {'.svp', '.song', '.vstpreset', '.wav', '.flac', '.mp3', '.mp4', '.webm', '.mkv', '.mov', '.avi', '.ass', '.vtt', '.f32', '.lrc', '.srt', '.ckpt', '.pt', '.pth', '.safetensors', '.pem', '.key'}
     secret = re.compile(r'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|(?:ghp_|github_pat_)[A-Za-z0-9_]{25,}|sk-proj-[A-Za-z0-9_-]{30,}')
     if args.ref:
         return audit_history(args.ref, args.for_public_release, blocked, private_extensions, secret)

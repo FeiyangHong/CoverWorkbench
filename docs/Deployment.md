@@ -69,3 +69,7 @@ The supported native deployment target is Windows. Starting the Python HTTP core
 Historical pilot scripts and private native tests are excluded from the public repository. GAME/WhisperX were optional research experiments, with upstream provenance recorded in `config/dependencies.json`; their scripts, weights and scientific environments are not part of this distribution. Do not interpret source availability as one-click model deployment.
 
 See [CONTRIBUTING](../CONTRIBUTING.md) for clean-checkout tests. A clean-clone test uses synthetic notes and no copyrighted audio. Native synthesis quality and arbitrary third-party DAW templates require separate manual validation.
+
+## Optional video tools
+
+The Video Studio requires configured FFmpeg and FFprobe for rendered previews and export. Run `tools/InstallVideoTools.ps1` for optional yt-dlp downloads and NumPy/SciPy alignment analysis. It uses the checkout virtual environment when available. No media is installed. See [Video Studio](VideoStudio.md) for workflow, private folders, export limits and moving media between devices.

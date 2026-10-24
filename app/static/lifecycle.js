@@ -4,14 +4,14 @@
 let instance=null, polling=null, revision=0, exiting=false, observed=false;
 const channel=typeof BroadcastChannel==='function'?new BroadcastChannel('cw-service-lifecycle'):null;
 let host=document.querySelector('.header-actions');
-if(!host){host=document.createElement('nav');host.className='cw-service-bar';host.innerHTML='<a href="/">CoverWorkbench <span>本机工作台</span></a>';document.body.prepend(host);}
+if(!host){host=document.createElement('nav');host.className='cw-service-bar';host.innerHTML='<a href="/">CoverWorkbench <span>本机工作台</span></a><a href="/video/index.html">视频制作</a>';document.body.prepend(host);}
 const button=document.createElement('button');button.id='cwExitButton';button.className='cw-exit-button';button.type='button';button.textContent='⏻ 彻底退出';button.title='停止本机后台服务，释放工作台资源';host.append(button);
 const dialog=document.createElement('dialog');dialog.id='cwExitDialog';dialog.className='cw-exit-dialog';dialog.setAttribute('aria-labelledby','cwExitTitle');
 dialog.innerHTML=`<span class="cw-exit-eyebrow">CLOSE YOUR WORKBENCH</span><h2 id="cwExitTitle">退出本机工作台？</h2><p>确认后会停止 CoverWorkbench 后台服务和网页试听，所有工作台窗口都会断开连接。</p><p>请先保存网页里尚未提交的修改。SV 和 Studio One 会继续运行，工程文件保留。</p><div id="cwExitActivity" class="cw-exit-activity" role="status">正在检查后台任务…</div><p class="cw-exit-note">下次使用时，双击桌面快捷方式或运行工作台目录里的 Start.vbs。</p><div class="cw-exit-actions"><button id="cwExitCancel" type="button">取消</button><button id="cwExitConfirm" type="button" disabled>确认彻底退出</button></div>`;
 document.body.append(dialog);
 const $=selector=>dialog.querySelector(selector);
 async function status(){const response=await fetch('/api/lifecycle',{cache:'no-store',signal:AbortSignal.timeout(3000)});const data=await response.json();if(!response.ok)throw Error(data.error||'无法读取后台状态');observed=true;return data;}
-function activity(data){instance=data.instance;const tasks=[];if(data.auditions)tasks.push(`${data.auditions} 个试听任务`);if(data.deliveries)tasks.push(`${data.deliveries} 个交付／视频任务`);if(!tasks.length&&Object.keys(data.operations||{}).length)tasks.push('正在处理的网页请求或任务收尾');$('#cwExitActivity').textContent=data.canExit?'后台空闲，可以安全退出。':data.state==='stopping'?'后台正在退出…':tasks.join('、')+'，请等待完成后再退出。';$('#cwExitConfirm').disabled=!data.canExit;}
+function activity(data){instance=data.instance;const tasks=[];if(data.auditions)tasks.push(`${data.auditions} 个试听任务`);if(data.videos)tasks.push(`${data.videos} 个视频制作任务`);if(data.deliveries)tasks.push(`${data.deliveries} 个交付／视频任务`);if(!tasks.length&&Object.keys(data.operations||{}).length)tasks.push('正在处理的网页请求或任务收尾');$('#cwExitActivity').textContent=data.canExit?'后台空闲，可以安全退出。':data.state==='stopping'?'后台正在退出…':tasks.join('、')+'，请等待完成后再退出。';$('#cwExitConfirm').disabled=!data.canExit;}
 async function refresh(){const current=++revision;try{const data=await status();if(current===revision&&dialog.open&&!exiting)activity(data);}catch(error){if(current===revision&&dialog.open){$('#cwExitActivity').textContent='暂时无法连接后台，请确认工作台是否仍在运行。';$('#cwExitConfirm').disabled=true;}}}
 button.onclick=()=>{if(exiting)return;dialog.showModal();$('#cwExitConfirm').disabled=true;refresh();polling=setInterval(refresh,2000);};
 function stopPoll(){revision++;clearInterval(polling);polling=null;}

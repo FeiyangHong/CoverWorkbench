@@ -29,6 +29,7 @@ jobs:
           python tests/native-audio.py
           python tests/song-mix.py
           python tests/lifecycle.py
+          python tests/video-studio.py
           python tools/release_check.py --for-public-release --ref HEAD
       - name: Install browser test dependencies
         run: |

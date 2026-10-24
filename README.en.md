@@ -127,3 +127,11 @@ Source code is managed separately from creative work. Git ignores local settings
 ## License
 
 CoverWorkbench's original source, documentation and product icons use the **[MIT License](LICENSE)**. Commercial use and proprietary modifications are permitted, subject to retaining the copyright and license notice. Third-party components, music, voice banks and user materials retain their own terms; see the [license policy](docs/Licensing.md) and [third-party notices](THIRD_PARTY_NOTICES.md).
+
+## Video Studio
+
+Open **视频制作** from the workbench for local video sources or optional yt-dlp downloads, independent bilingual caption timelines, per-line typography, saved-SVP timing proposals, loudness/offset analysis, loop playback, and accurate FFmpeg/libass preview clips. Every export has its own folder with captions, a configuration snapshot and validation report. Original media remains unchanged. See the [Chinese Video Studio guide](docs/VideoStudio.md) for setup and the distinction between fast layout playback and actual rendered previews. Optional acquisition/alignment dependencies are installed with `tools/InstallVideoTools.ps1`; FFmpeg/FFprobe are configured locally.
+
+![Local Video Studio with bilingual caption editing and typography controls](docs/images/video-studio.png)
+
+The screenshot uses a procedurally generated still and test tone in a fictional project. It shows the fast layout view; rendered previews and exports use local FFmpeg/libass.
