@@ -9,6 +9,7 @@ const assert=require('node:assert/strict');
   assert.equal(await page.locator('#title').innerText(),'从你的第一首作品开始');
   await page.locator('#environmentSettings').click();await page.locator('#environmentStatus').filter({hasText:'Python'}).waitFor();
   await page.locator('#closeEnvironment').click();
+  await require('./mix-guide.cjs')(page, process.argv[2]);
   await page.locator('#welcomeImport').click();
   await page.locator('#importProjectForm [name=svp]').fill('"'+process.argv[3]+'"');
   await page.locator('#importProjectForm [name=title]').fill('My First Cover');

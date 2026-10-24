@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="500" viewBox="0 0 960 500" role="img" aria-label="Studio One 人声插入、发送与效果返回路由示意">
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="none" stroke="#9c8abd"/></marker></defs>
+<rect width="960" height="500" rx="20" fill="#f7f5fc"/>
+<g font-family="Segoe UI,Microsoft YaHei,sans-serif" fill="#41384f">
+<text x="30" y="38" font-size="13" fill="#8c77aa" letter-spacing="2">STUDIO ONE · 路由示意</text>
+<rect x="30" y="65" width="300" height="405" rx="16" fill="white" stroke="#e3dced"/>
+<text x="54" y="101" font-size="23" font-weight="700">主声 / Lead</text>
+<text x="54" y="132" font-size="14" fill="#8e819b">插入 INSERTS</text>
+<rect x="54" y="145" width="252" height="38" rx="7" fill="#f0ebff"/><text x="68" y="170" font-size="16">Pro-Q 3 → Pro-C 2 → Pro-DS</text>
+<text x="54" y="221" font-size="14" fill="#8e819b">发送 SENDS</text>
+<text x="54" y="252" font-size="16">Vocal Plate · 混响量</text>
+<rect x="54" y="267" width="252" height="16" rx="8" fill="#eee8f6"/><rect x="54" y="267" width="128" height="16" rx="8" fill="#9e85dc"/>
+<text x="54" y="320" font-size="16">Vocal Delay · 回声量</text>
+<rect x="54" y="335" width="252" height="16" rx="8" fill="#e6f2ee"/><rect x="54" y="335" width="98" height="16" rx="8" fill="#6cae97"/>
+<text x="54" y="402" font-size="15" fill="#8e819b">主声推子：调整这条人声的音量</text>
+<text x="54" y="433" font-size="13" fill="#a195ad">发送量：只改变这条人声送去的量</text>
+<g stroke="#b3a3ca" fill="none" stroke-width="2" marker-end="url(#arrow)"><path d="M332 275H390V168H447"/><path d="M332 343H405V365H447"/></g>
+<rect x="455" y="80" width="475" height="180" rx="16" fill="white" stroke="#e3dced"/>
+<text x="480" y="118" font-size="23" font-weight="700">Vocal Plate</text><text x="480" y="151" font-size="17" fill="#8668b6">插入 → Pro-R 2</text>
+<rect x="480" y="172" width="290" height="44" rx="8" fill="#f0ebff"/><text x="496" y="200" font-size="16">返回推子：所有混响的总量</text>
+<text x="794" y="149" font-size="16" fill="#8e819b">M 静音</text><text x="794" y="185" font-size="16" fill="#8e819b">Mix 100%</text>
+<rect x="455" y="290" width="475" height="180" rx="16" fill="white" stroke="#d6e9e1"/>
+<text x="480" y="328" font-size="23" font-weight="700">Vocal Delay / Timeless</text><text x="480" y="361" font-size="17" fill="#4c947a">插入 → Timeless 3</text>
+<rect x="480" y="382" width="290" height="44" rx="8" fill="#e8f5ef"/><text x="496" y="410" font-size="16">返回推子：所有回声的总量</text>
+<text x="794" y="359" font-size="16" fill="#8e819b">M 静音</text><text x="794" y="395" font-size="16" fill="#8e819b">Mix 100%</text>
+</g></svg>

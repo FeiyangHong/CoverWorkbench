@@ -29,6 +29,7 @@ CoverWorkbench handles repeatable preparation and delivery tasks while detailed 
 | Lyrics and subtitles | Import local lyrics or explicitly search, prepare optional Japanese romaji and subtitle drafts | Lyrics, readings, translation and timing |
 | Repetitive SV tasks | Native scripts for phrase lyrics, phrase reuse and group-level base voice presets | Pitch, rhythm, voice bank and expressive details |
 | Studio One setup | Build an independent Song from a compatible local template, mapping vocal outputs and preserving effects and routing | Template choice and mix adjustments for the new song |
+| Mixing reference | Find controls by sound goal, with annotated plugin screenshots and zoom | Audition and adjust in Studio One |
 | Checks and delivery | Use local FFmpeg for audio checks, delivery packages and video audio replacement | Final listening, visuals and publication |
 
 ## Preview
@@ -84,6 +85,8 @@ Setup creates an isolated `.venv` and an empty workspace without modifying SV, S
 ```
 
 SV scripts must be installed separately into the editor's script directory and rescanned. See **[Deployment](docs/Deployment.md)** for tool configuration, scripts, template requirements, alternatives when PowerShell scripts are blocked, and migration.
+
+Open **混音指南 / Mixing guide** in the workbench to find controls by sound goal, with annotated screenshots and zoom. See the [guide overview](docs/MixingGuide.md).
 
 ## Starter mix templates
 
