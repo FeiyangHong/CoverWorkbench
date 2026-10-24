@@ -2,3 +2,5 @@
 
 .edit-area>article{min-width:0}.stage video{min-width:0}.preview-head>div:first-child{display:block}.preview-head>div:first-child .eyebrow{display:block}@media(max-width:760px){.studio-layout{grid-template-columns:minmax(0,1fr)}}
 .job-filename{font-weight:600;color:#685292;overflow-wrap:anywhere;margin:8px 0}.job-details{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}.job-details summary{cursor:pointer;font-size:11px;color:var(--muted)}.job-details .job-links{margin-top:12px}.job-error{overflow-wrap:anywhere;color:#986579}
+
+#overlay img{position:absolute;display:block;max-width:none;pointer-events:none}.caption-render-status{display:block;font-size:10px;color:#698c7f;margin-top:7px}.caption-render-status.approximate{color:#a57b3e}

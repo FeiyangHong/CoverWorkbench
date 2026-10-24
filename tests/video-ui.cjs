@@ -14,6 +14,41 @@ const {chromium}=require('playwright');
   await page.locator('[data-step="mv"]').click();await page.getByText('下载并使用 MV，或选择存在的本地视频',{exact:true}).waitFor();
   await page.locator('#add').click();await page.locator('[data-cue$=":original"]').fill('A synthetic line');
   await page.locator('#save').click();await page.locator('#dirty').filter({hasText:'已保存'}).waitFor();
+  // Delayed old layout replies must never replace the newest edited caption.
+  let releaseOld,releaseNew;
+  const calls=[];
+  await page.route('**/api/video-caption/new',async route=>{
+   const body=route.request().postDataJSON(),text=body.cues[0].original;calls.push(text);
+   if(text==='Old layout')await new Promise(resolve=>releaseOld=resolve);
+   if(text==='New layout')await new Promise(resolve=>releaseNew=resolve);
+   if(text==='Failed layout')return route.fulfill({status:503,json:{error:'Synthetic renderer unavailable'}});
+   return route.fulfill({json:{url:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=='}});
+  });
+  await page.evaluate(()=>{
+   window.CWCaptionPreview.configure(true);
+   window.captionTestPayload={width:1920,height:1080,styles:{},cues:[{id:'test',original:'Old layout',translation:''}]};
+   window.captionTestDraw=()=>window.CWCaptionPreview.paint(document.querySelector('#overlay'),window.captionTestPayload,{width:640,height:360,left:0,top:0},window.captionTestDraw);
+   window.captionTestDraw();
+  });
+  await page.waitForRequest(r=>r.url().includes('/api/video-caption/')&&r.postDataJSON().cues[0].original==='Old layout');
+  await page.evaluate(()=>{window.captionTestPayload.cues[0].original='New layout';window.captionTestDraw();});
+  releaseOld();
+  await page.waitForRequest(r=>r.url().includes('/api/video-caption/')&&r.postDataJSON().cues[0].original==='New layout');
+  if(await page.locator('#overlay img').count())throw Error('Stale subtitle layer became visible');
+  releaseNew();await page.locator('#overlay img').waitFor();
+  if(!(await page.locator('#overlay').getAttribute('data-caption-key')).includes('New layout'))throw Error('Latest layout not displayed');
+  await page.evaluate(()=>window.captionTestDraw());
+  if(calls.length!==2)throw Error('Unchanged layout was re-rendered');
+  for(const text of ['Third layout','Fourth layout','Fifth layout']){
+   await page.evaluate(text=>{window.captionTestPayload.cues[0].original=text;window.captionTestDraw();},text);
+   await page.waitForFunction(text=>document.querySelector('#overlay').dataset.captionKey?.includes(text),text);
+  }
+  await page.evaluate(()=>{window.captionTestPayload.cues[0].original='New layout';window.captionTestDraw();});
+  await page.waitForFunction(()=>document.querySelector('#overlay').dataset.captionKey?.includes('New layout'));
+  if(calls.length!==5)throw Error('Evicting decoded images lost the reusable layout URL');
+  await page.evaluate(()=>{window.captionTestPayload.cues[0].original='Failed layout';window.captionTestDraw();});
+  await page.locator('#captionRenderStatus').filter({hasText:'近似显示'}).waitFor();
+  await page.evaluate(()=>{window.CWCaptionPreview.configure(false);window.CWCaptionPreview.clear(document.querySelector('#overlay'));});
   const jobId='a'.repeat(32),filename='Synthetic Video - v017.mp4';
   const fixture={id:jobId,kind:'export',version:17,outputName:filename,status:'completed',stage:'完成',created:1,
    folder:'Synthetic Video/Exports/Export 017',files:[filename,'captions.ass','captions.srt','snapshot.json','report.json']};
@@ -52,6 +87,6 @@ const {chromium}=require('playwright');
   if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2))throw Error('Mobile overflow');
   await page.locator('#cwExitButton').click();await page.locator('#cwExitActivity').filter({hasText:'空闲'}).waitFor();await page.locator('#cwExitCancel').click();
   if(errors.length)throw Error(errors.join('\n'));
-  console.log('PASS: guided workflow, font specimens, caption timeline, persistence, readable output names/labels, collapsed details, mobile layout and exit controls');
+  console.log('PASS: guided video UI, native caption cache/stale-response/fallback handling, readable versions, timeline, fonts, mobile layout and exit controls');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1);});

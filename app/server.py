@@ -6,7 +6,7 @@ import settings
 settings.initialize()
 from core import *
 import lyrics, live, workflow, daw, desktop, projects, native_audio, song_mix, lifecycle
-import video_project, video_jobs, video_workflow
+import video_project, video_jobs, video_workflow, video_captions
 live.prepare_manifest()
 
 PORT=int(os.environ.get("COVERWORKBENCH_PORT", "8765"))
@@ -106,6 +106,7 @@ class Handler(BaseHTTPRequestHandler):
             if parts[:2]==['api','video-job'] and len(parts)==3:return self.respond(video_jobs.job(parts[2]))
             if parts[0]=='video-source' and len(parts)==3:return self.file(video_jobs.source(parts[1],parts[2]))
             if parts[0]=='video-output' and len(parts)==4:return self.file(video_jobs.media(parts[1],parts[2],parts[3]),not parts[3].startswith('preview.'))
+            if parts[0]=='video-caption' and len(parts)==2:return self.file(video_captions.media(parts[1]))
             if path=='/api/settings':return self.respond(settings.status())
             if path=='/api/mix-native':return self.respond(native_audio.status())
             if parts[:2]==['api','mix-job'] and len(parts)==3:return self.respond(native_audio.job(parts[2]))
@@ -153,6 +154,7 @@ class Handler(BaseHTTPRequestHandler):
             body=json.loads(self.rfile.read(size));parts=unquote(urlsplit(self.path).path).strip('/').split('/')
             if len(parts)!=3 or parts[0]!='api':return self.respond({'error':'Route not found'},404)
             action,pid=parts[1:]
+            if action=='video-caption':return self.respond(video_captions.render(body))
             if action=='video-create':return self.respond(video_project.create(body),201)
             if action=='video-save':return self.respond(video_project.save(pid,body))
             if action=='video-check':

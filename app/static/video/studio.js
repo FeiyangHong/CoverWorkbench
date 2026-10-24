@@ -16,7 +16,7 @@ function message(s){$('#message').textContent=s;$('#message').hidden=false;clear
 function safe(fn){return async(...args)=>{try{return await fn(...args);}catch(e){message(e.message);}};}
 function fmt(t){t=Math.max(0,Number(t)||0);const n=Math.round(t*1000);return `${String(Math.floor(n/60000)).padStart(2,'0')}:${String(Math.floor(n/1000)%60).padStart(2,'0')}.${String(n%1000).padStart(3,'0')}`;}
 function time(v){if(!String(v).includes(':'))return Number(v);return String(v).split(':').reduce((a,n)=>a*60+Number(n),0);}
-function mark(){if(!doc)return;editVersion++;dirty=true;$('#dirty').textContent='有未保存修改';$('#dirty').style.color='#a17732';drawOverlay();changed('edit');}
+function mark(){if(!doc)return;if(exact)timeline(clock());editVersion++;dirty=true;$('#dirty').textContent='有未保存修改';$('#dirty').style.color='#a17732';drawOverlay();changed('edit');}
 function readFields(){for(const k of fields)doc[k]=k==='burn'?$('#'+k).checked:numeric.has(k)?Number($('#'+k).value):$('#'+k).value;}
 function applyFields(){for(const k of fields)if(k==='burn')$('#'+k).checked=doc[k];else $('#'+k).value=doc[k];$('#gainDb').disabled=doc.audioMode!=='gain';$('#targetLufs').disabled=doc.audioMode!=='normalize';}
 async function save(){
@@ -27,7 +27,7 @@ async function save(){
  finally{saving=false;$('#workspace').inert=false;$('#save').disabled=false;}
 }
 async function refresh(){const x=await api('/api/video-status');const value=doc?.id||'';$('#projects').innerHTML='<option value="">选择视频工程</option>'+x.projects.map(p=>`<option value="${esc(p.id)}">${esc(p.name)} · r${p.revision}</option>`).join('');$('#projects').value=value;
- const d=x.dependencies;fontCatalog=d.fontCatalog||[];$('#environment').textContent=`本机处理 · FFmpeg ${d.ffmpeg&&d.ffprobe?'就绪':'待配置'} · yt-dlp ${d.download?'就绪':'可选，尚未安装'} · 分段对时 ${d.alignment?'就绪':'需可选依赖'} · 素材与配置不上传`;
+ const d=x.dependencies;fontCatalog=d.fontCatalog||[];window.CWCaptionPreview.configure(d.ffmpeg);drawOverlay();$('#environment').textContent=`本机处理 · FFmpeg ${d.ffmpeg&&d.ffprobe?'就绪':'待配置'} · yt-dlp ${d.download?'就绪':'可选，尚未安装'} · 分段对时 ${d.alignment?'就绪':'需可选依赖'} · 素材与配置不上传`;
  $('#fontList').innerHTML=d.fonts.map(f=>`<option value="${esc(f)}"></option>`).join('');
 }
 async function open(ident){
@@ -49,7 +49,7 @@ async function browse(path){const x=await api('/api/daw-browse/new',{kind:browse
  $$('[data-root]').forEach(b=>b.onclick=safe(()=>browse(b.dataset.root)));$$('[data-entry]').forEach(b=>b.onclick=safe(async()=>{const e=x.entries[Number(b.dataset.entry)];if(e.directory)await browse(e.path);else{browseCallback(e.path);$('#picker').close();}}));}
 async function pick(kind,callback,path=''){browseKind=kind;browseCallback=callback;$('#picker').showModal();try{await browse(path||doc?.video||'');}catch(e){$('#browseError').textContent=e.message;}}
 $('#browseGo').onclick=safe(()=>browse($('#browsePath').value));$('#browseUp').onclick=safe(()=>parent&&browse(parent));$('#sort').onchange=safe(()=>browse($('#browsePath').value));$('#browseClose').onclick=()=>$('#picker').close();
-function loadMedia(){if(!doc)return;const key=doc.id+'|'+doc.video+'|'+doc.audio;if(key===loadedMedia)return;stop();exact=null;loadedMedia=key;$('#listen').disabled=false;$('#previewTitle').textContent='快速布局与试听';$('#previewNote').textContent='空格：从当前位置播放 / 暂停；I / O 设置区间；J / L 前后 2 秒。快速布局是草稿，准确区间预览含实际字幕与声音处理。';if(doc.video)player.src='/video-source/'+encodeURIComponent(doc.id)+'/video?v='+doc.revision;else player.removeAttribute('src');if(doc.audio)cover.src='/video-source/'+encodeURIComponent(doc.id)+'/audio?v='+doc.revision;else cover.removeAttribute('src');$('#noMedia').hidden=!!doc.video;audioError=false;}
+function loadMedia(){if(!doc)return;const key=doc.id+'|'+doc.video+'|'+doc.audio;if(key===loadedMedia)return;stop();exact=null;loadedMedia=key;$('#listen').disabled=false;$('#previewTitle').textContent='快速布局与试听';$('#previewNote').textContent='空格：从当前位置播放 / 暂停；I / O 设置区间；J / L 前后 2 秒。字幕与成片使用同一排版引擎；最终音量处理请听准确区间预览。';if(doc.video)player.src='/video-source/'+encodeURIComponent(doc.id)+'/video?v='+doc.revision;else player.removeAttribute('src');if(doc.audio)cover.src='/video-source/'+encodeURIComponent(doc.id)+'/audio?v='+doc.revision;else cover.removeAttribute('src');$('#noMedia').hidden=!!doc.video;audioError=false;}
 function stop(){player.pause();cover.pause();$('#play').textContent='▶';}
 async function audioContext(){if(!context){context=new AudioContext();mediaNode=context.createMediaElementSource(cover);gain=context.createGain();mediaNode.connect(gain).connect(context.destination);}await context.resume();}
 function clock(){return player.currentTime+(exact?.start||0);}
@@ -75,8 +75,19 @@ $('#seek').oninput=()=>{player.currentTime=Number($('#seek').value);sync(true);d
 function timeline(t){if(exact){loadedMedia='';loadMedia();}if(player.readyState>=1)seek(t);else requestedTimeline=t;}
 $('#raw').onclick=()=>timeline(clock());
 function drawOverlay(){
- const overlay=$('#overlay');overlay.replaceChildren();if(!doc||exact||!doc.burn)return;const t=clock();const width=$('#stage').clientWidth,height=$('#stage').clientHeight;const ratio=player.videoWidth&&player.videoHeight?player.videoWidth/player.videoHeight:16/9;const viewWidth=Math.min(width,height*ratio),viewHeight=viewWidth/ratio,left=(width-viewWidth)/2,top=(height-viewHeight)/2;
- for(const r of doc.cues){if(t<r.start+doc.subtitleShift||t>=r.end+doc.subtitleShift)continue;for(const key of ['original','translation']){if(!r[key])continue;const s={...doc.styles[key],...r[key+'Style']},span=document.createElement('span');span.textContent=r[key];Object.assign(span.style,{fontFamily:s.font,fontSize:s.size*viewHeight/1080+'px',letterSpacing:s.spacing*viewWidth/1920+'px',left:left+s.x*viewWidth/1920+'px',top:top+s.y*viewHeight/1080+'px',color:s.color,fontWeight:s.bold?'700':'400',textShadow:`0 1px ${s.shadow+1}px #000` ,webkitTextStroke:`${s.outline*viewHeight/1080}px #151515`,paintOrder:'stroke fill'});overlay.append(span);}}
+ const overlay=$('#overlay'),renderer=window.CWCaptionPreview;
+ if(!doc||exact||!doc.burn){renderer.clear(overlay,Boolean(exact));return;}
+ const t=clock(),width=$('#stage').clientWidth,height=$('#stage').clientHeight;const ratio=player.videoWidth&&player.videoHeight?player.videoWidth/player.videoHeight:16/9;const viewWidth=Math.min(width,height*ratio),viewHeight=viewWidth/ratio,left=(width-viewWidth)/2,top=(height-viewHeight)/2;
+ const frameHeight=doc.resolution==='source'?(player.videoHeight||1080):Number(doc.resolution),frameWidth=Math.floor(frameHeight*ratio/2)*2;
+ // ASS timestamps use centiseconds, including ties-to-even rounding.
+ const assTime=value=>{const x=Math.max(0,value)*100,n=Math.floor(x);return (x-n===.5?(n%2?n+1:n):Math.round(x))/100;};
+ const active=doc.cues.filter(r=>t>=assTime(r.start+doc.subtitleShift)&&t<assTime(r.end+doc.subtitleShift));
+ const payload=rows=>({width:frameWidth,height:frameHeight,styles:doc.styles,cues:rows.map(r=>Object.fromEntries(['id','original','translation','originalStyle','translationStyle'].filter(k=>r[k]!==undefined).map(k=>[k,r[k]])))});
+ const next=doc.cues.filter(r=>r.start+doc.subtitleShift>t).sort((a,b)=>a.start-b.start)[0];
+ if(!active.length){renderer.clear(overlay);if(next)renderer.prefetch(payload([next]),drawOverlay);return;}
+ if(renderer.paint(overlay,payload(active),{width:viewWidth,height:viewHeight,left,top},drawOverlay)){if(next)renderer.prefetch(payload([next]),drawOverlay);return;}
+ overlay.replaceChildren();delete overlay.dataset.captionKey;
+ for(const r of active){for(const key of ['original','translation']){if(!r[key])continue;const s={...doc.styles[key],...r[key+'Style']},span=document.createElement('span');span.textContent=r[key];Object.assign(span.style,{fontFamily:s.font,fontSize:s.size*viewHeight/1080+'px',letterSpacing:s.spacing*viewWidth/1920+'px',left:left+s.x*viewWidth/1920+'px',top:top+s.y*viewHeight/1080+'px',color:s.color,fontWeight:s.bold?'700':'400',textShadow:`0 1px ${s.shadow+1}px #000` ,webkitTextStroke:`${s.outline*viewHeight/1080}px #151515`,paintOrder:'stroke fill'});overlay.append(span);}}
 }
 new ResizeObserver(drawOverlay).observe($('#stage'));
 function fontField(attrs,key,family){const list=fontCatalog.filter(f=>f.available||f.family===family);if(!list.some(f=>f.family===family))list.unshift({family,label:family});return `<label>字体<select data-style="${attrs}:${key}:font">${list.map(f=>`<option value="${esc(f.family)}" ${f.family===family?'selected':''}>${esc(f.label)}</option>`).join('')}</select></label><button class="quiet font-browse" type="button" data-font-browse="${attrs}:${key}">字形预览与选择 ↗</button>`;}
