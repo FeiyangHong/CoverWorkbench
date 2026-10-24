@@ -78,6 +78,7 @@ module.exports = async function verifyMixAudio(page) {
   page.off('request', watch);
   await page.setViewportSize({width: 2560, height: 1440});
   await page.locator('[data-mg-view="photo"]').click();
+  await page.locator('#mgImage img').evaluate(image => image.decode());
   const size = await page.locator('#mgImage img').evaluate(image => ({width: image.getBoundingClientRect().width, natural: image.naturalWidth}));
   assert(size.width <= size.natural + 1, 'Large viewport must not stretch the screenshot');
   console.log('PASS: non-silent reverb/delay/EQ differences, tail energy, RMS matching/headroom, A/B timeline, transport and source controls');
