@@ -1,0 +1,2 @@
+# Optional host only; no commercial plugins or audio are distributed.
+pedalboard==0.9.22

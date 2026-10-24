@@ -48,6 +48,10 @@ Registration validates these basic conditions. It does not certify arbitrary Son
 
 For **SV2**, a separately captured local host JSON and VST3 state are still required, as documented in [the integration README](../integrations/studio-one/README.md). The generic base template remains SV1. A fresh installation can inspect SV2 files but cannot build SV2 Songs until that native host state is configured. To capture it locally, save an empty Studio One Song with exactly one supported SV2 VST3 instrument, then enter that Song under Environment settings > 配置 SV2 宿主. The app extracts the actual component state and retains a backup of the prior registration. It does not synthesize vendor state or activate a voice bank. Unsupported plugin class IDs are rejected. Existing legacy local template registrations remain usable.
 
+## Optional real FabFilter auditions
+
+Run `tools/InstallNativeAudio.ps1` to install the optional Pedalboard host into the interpreter used by this checkout, then refresh the mixing guide. Configure FFmpeg/FFprobe and separately install and authorize FabFilter Pro-R 2, Timeless 3 and/or Pro-Q 3 in VST3 format. Standard Windows plugin paths are detected; `COVERWORKBENCH_VST3_DIR` can specify their containing directory before server startup. Plugins and host binaries are never included in Git or the source release. The guide works without this optional dependency and reports unavailable plugins explicitly. See [Mixing guide](MixingGuide.md) for source selection, intervals, rendering limits and private cache management.
+
 ## Moving to another computer
 
 Source code alone is sufficient for a fresh empty workspace. Install tools and re-import your saved SVP on the new device; register your own templates and reinstall scripts. Existing working data includes absolute links and is **not automatically rebased** when copied. To continue previous work, back up its current SVP, media, lyrics/subtitles, `config/*.local.json`, `config/projects.json`, `data`, `projects`, and local integrations separately, then repair/re-import references on the destination. Do not copy `.venv`; recreate it with Setup.

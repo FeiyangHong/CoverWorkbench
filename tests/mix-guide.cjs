@@ -64,6 +64,9 @@ module.exports = async function verifyMixGuide(page, base) {
     const errors = [];
     standalone.on('pageerror', error => errors.push(error.message));
     await standalone.goto(base + '/mix-guide/index.html');
+    await standalone.waitForFunction(() => !document.querySelector('#mgNativeEnvironment').textContent.includes('正在检查'));
+    assert(await standalone.locator('#mgNative').isVisible(), 'Native auditions must be available without importing a project');
+    assert(await standalone.locator('#mgNativeRender').isDisabled(), 'A clean installation must report missing optional tools rather than emulate a native plugin');
     await standalone.locator('#mgImage img').evaluate(image => image.decode());
     assert.equal(await standalone.locator('[data-mg-goal]').count(), 18);
     await require('./mix-audio.cjs')(standalone);

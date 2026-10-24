@@ -5,7 +5,7 @@ import json, mimetypes, os, re, sys, time, threading
 import settings
 settings.initialize()
 from core import *
-import lyrics, live, workflow, daw, desktop, projects
+import lyrics, live, workflow, daw, desktop, projects, native_audio
 live.prepare_manifest()
 
 PORT=int(os.environ.get("COVERWORKBENCH_PORT", "8765"))
@@ -91,6 +91,9 @@ class Handler(BaseHTTPRequestHandler):
         try:
             u=urlsplit(self.path);path=unquote(u.path);parts=path.strip('/').split('/')
             if path=='/api/settings':return self.respond(settings.status())
+            if path=='/api/mix-native':return self.respond(native_audio.status())
+            if parts[:2]==['api','mix-job'] and len(parts)==3:return self.respond(native_audio.job(parts[2]))
+            if parts[0]=='mix-audio' and len(parts)==3:return self.file(native_audio.media(parts[1],parts[2]))
             if path=='/api/projects':return self.respond(read_json(ROOT/'config/projects.json'))
             if path=='/api/desktop':return self.respond(desktop.status())
             if len(parts)==2 and parts[0]=='desktop-icons':return self.file(desktop.asset(parts[1]),parts[1].endswith('.ico'))
@@ -127,6 +130,8 @@ class Handler(BaseHTTPRequestHandler):
             body=json.loads(self.rfile.read(size));parts=urlsplit(self.path).path.strip('/').split('/')
             if len(parts)!=3 or parts[0]!='api':return self.respond({'error':'Route not found'},404)
             action,pid=parts[1:]
+            if action=='mix-inspect':return self.respond(native_audio.inspect(body))
+            if action=='mix-render':return self.respond(native_audio.enqueue(body),202)
             if action=='project-import':
                 with LOCK:
                     result=projects.create(body);live.prepare_manifest()
