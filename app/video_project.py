@@ -77,6 +77,18 @@ def style(value):
     return out
 
 
+def caption_times(row, language):
+    return row.get(language + 'Timing') or {'start': row['start'], 'end': row['end']}
+
+
+def shift_caption(row, delta):
+    row['start'] = round(row['start'] + delta, 6)
+    row['end'] = round(row['end'] + delta, 6)
+    for key in ('originalTiming', 'translationTiming'):
+        if key in row:
+            row[key] = {edge: round(row[key][edge] + delta, 6) for edge in ('start', 'end')}
+
+
 def validate(doc):
     if not isinstance(doc, dict): raise ValueError('无效的视频工程')
     for key in ['video', 'audio']:
@@ -102,6 +114,13 @@ def validate(doc):
         row['start'], row['end'] = stamp(row['start']), stamp(row['end'])
         if row['end'] <= row['start']: raise ValueError(f'{ident} 结束时间须晚于开始时间')
         for key in ['original', 'translation']:
+            timing = row.get(key + 'Timing')
+            if timing is not None:
+                if not isinstance(timing, dict) or set(timing) != {'start', 'end'}:
+                    raise ValueError(f'{ident} 单行时间格式无效')
+                timing['start'], timing['end'] = stamp(timing['start']), stamp(timing['end'])
+                if timing['end'] <= timing['start']:
+                    raise ValueError(f'{ident} 单行结束时间须晚于开始时间')
             value = row.get(key, '')
             if not isinstance(value, str) or len(value) > 2000 or '\x00' in value: raise ValueError('字幕文字过长或无效')
             row[key] = value
@@ -112,15 +131,16 @@ def validate(doc):
 
 def warnings(doc, duration=None):
     result = []
-    rows = sorted(doc['cues'], key=lambda r: r['start'])
-    for i, row in enumerate(rows):
-        notes = []
-        if row['start'] + doc['subtitleShift'] < 0: notes.append('移动后开始时间小于零，将裁切')
-        if i and row['start'] < rows[i-1]['end'] - .005: notes.append('与上一句重叠，请确认是否为对唱')
-        if duration and row['end'] + doc['subtitleShift'] > duration: notes.append('超过视频结尾，将裁切')
-        if max(len(row['original']), len(row['translation'])) / (row['end'] - row['start']) > 18: notes.append('阅读速度偏快')
-        if max(len(row['original']), len(row['translation'])) > 55: notes.append('长句，请用准确预览检查宽度')
-        if notes: result.append({'id': row['id'], 'messages': notes})
+    for key, label in [('original', '原文'), ('translation', '译文')]:
+        rows = sorted((r for r in doc['cues'] if r.get(key)), key=lambda r: caption_times(r,key)['start'])
+        for i, row in enumerate(rows):
+            timing=caption_times(row,key);notes=[]
+            if timing['start'] + doc['subtitleShift'] < 0: notes.append('移动后开始时间小于零，将裁切')
+            if i and timing['start'] < caption_times(rows[i-1],key)['end'] - .005: notes.append('与上一句重叠，请确认是否为对唱')
+            if duration and timing['end'] + doc['subtitleShift'] > duration: notes.append('超过视频结尾，将裁切')
+            if len(row[key]) / (timing['end']-timing['start']) > 18: notes.append('阅读速度偏快')
+            if len(row[key]) > 55: notes.append('长句，请用准确预览检查宽度')
+            if notes: result.append({'id':row['id'],'messages':[label+'：'+n for n in notes]})
     return result
 
 
@@ -307,18 +327,35 @@ def write_subtitles(doc, dest, duration):
     def style_line(name,s):
         rgb=s['color'][1:]; color='&H00'+rgb[4:6]+rgb[2:4]+rgb[:2]
         return f"Style: {name},{s['font']},{s['size']},{color},{color},&H00151515,&H80000000,{-1 if s['bold'] else 0},0,0,0,100,100,{s['spacing']},0,1,{s['outline']},{s['shadow']},2,80,80,54,1\n"
-    events=[]; output=[]
+    events=[]; intervals=[]
     for i,row in enumerate(doc['cues']):
-        start=max(0,row['start']+doc['subtitleShift']); end=min(duration,row['end']+doc['subtitleShift'])
-        if end<=start: continue
-        output.append({**row,'start':start,'end':end})
         for key in ['original','translation']:
             if not row[key]: continue
+            timing=caption_times(row,key)
+            start=max(0,timing['start']+doc['subtitleShift']); end=min(duration,timing['end']+doc['subtitleShift'])
+            if end<=start: continue
+            intervals.append((start,end,key,row[key]))
             name=f'S{i}_{key}'; s=style({**doc['styles'][key],**row.get(key+'Style',{})})
             header+=style_line(name,s)
             events.append(f"Dialogue: 0,{ass_stamp(start)},{ass_stamp(end)},{name},,0,0,0,,{{\\an2\\pos({s['x']},{s['y']})}}{ass_text(row[key])}")
     header+='\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n'
     (dest/'captions.ass').write_text(header+'\n'.join(events)+'\n',encoding='utf-8-sig')
+    # SRT has one shared event clock: partition independently timed language lines
+    # into non-overlapping bilingual intervals instead of making players drop overlaps.
+    changes={}
+    for index,(start,end,_,_) in enumerate(intervals):
+        changes.setdefault(start,[]).append((index,True))
+        changes.setdefault(end,[]).append((index,False))
+    times=sorted(changes);active=set();output=[]
+    for index,start in enumerate(times[:-1]):
+        for item,add in changes[start]:
+            if add:active.add(item)
+            else:active.discard(item)
+        end=times[index+1]
+        texts={key:'\n'.join(intervals[n][3] for n in sorted(active) if intervals[n][2]==key) for key in ('original','translation')}
+        if not any(texts.values()):continue
+        if output and output[-1]['end']==start and all(output[-1][k]==v for k,v in texts.items()):output[-1]['end']=end
+        else:output.append({'start':start,'end':end,**texts})
     (dest/'captions.srt').write_text(srt_text(output),encoding='utf-8-sig')
     save_json(dest/'caption-timing.json',{'clock':'video','audioOffset':doc['audioOffset'],
              'subtitleShift':doc['subtitleShift'],'files':{name:sha(dest/name) for name in ['captions.ass','captions.srt']}})

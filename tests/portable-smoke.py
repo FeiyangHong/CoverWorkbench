@@ -107,6 +107,7 @@ def main():
                 else: raise AssertionError('Invalid shutdown accepted')
             if args.browser:
                 subprocess.run(['node', str(ROOT / 'tests/video-ui.cjs'), base], check=True, cwd=ROOT)
+                subprocess.run(['node', str(ROOT / 'tests/video-timeline.cjs'), base], check=True, cwd=ROOT)
                 subprocess.run(['node', str(ROOT / 'tests/lifecycle-ui.cjs'), base], check=True, cwd=ROOT)
             else:
                 assert request('/api/shutdown/local', {'confirm': True, 'instance': service['instance']})['state'] == 'stopping'

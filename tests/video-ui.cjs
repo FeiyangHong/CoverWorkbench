@@ -109,7 +109,7 @@ const {chromium}=require('playwright');
   const block=page.locator('.lane-original [data-caption]').first();await block.scrollIntoViewIfNeeded();
   await page.locator('#captionScroll').evaluate(el=>el.scrollLeft=0);
   const box=await block.boundingBox();await page.mouse.move(box.x+22,box.y+12);await page.mouse.down();await page.mouse.move(box.x+82,box.y+12,{steps:5});await page.mouse.up();
-  if(Number(await page.locator('[data-cue$=":start"]').inputValue())<=0)throw Error('Caption drag did not change time');
+  if(!await page.evaluate(()=>{const r=window.CWVideoStudio.get().doc.cues[0],t=window.CWCaptionTiming;return t.get(r,'original').start>0&&t.get(r,'translation').start===r.start;}))throw Error('Caption drag did not independently move original time');
   await page.locator('#save').click();await page.locator('#dirty').filter({hasText:'已保存'}).waitFor();
   await page.setViewportSize({width:390,height:844});await page.waitForTimeout(100);
   if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2))throw Error('Mobile overflow');

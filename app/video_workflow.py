@@ -44,10 +44,10 @@ def reconcile(current,doc):
         if linked:
             delta=round(doc['audioOffset']-state['appliedAudioOffset'],6)
             if abs(delta)>.000001:
-                if any(r['start']+delta<0 for r in doc['cues']):
+                if any(min(r['start'],*(project.caption_times(r,k)['start'] for k in ('original','translation')))+delta<0 for r in doc['cues']):
                     raise ValueError('跟随音频移动后有字幕早于零秒；请先调整首句，或确认字幕改用固定视频时间')
                 for row in doc['cues']:
-                    row['start']=round(row['start']+delta,6);row['end']=round(row['end']+delta,6)
+                    project.shift_caption(row,delta)
                 state['appliedAudioOffset']=doc['audioOffset']
                 state.pop('ackShift',None)
     doc['timing']=state
@@ -92,7 +92,11 @@ def checks(doc,jobs):
         try:
             a=project.number(row['start'],0,86400);b=project.number(row['end'],0,86400)
             if b<=a:raise ValueError()
-        except (ValueError,KeyError):invalid.append(row.get('id','?'))
+            for key in ('original','translation'):
+                timing=project.caption_times(row,key)
+                a=project.number(timing['start'],0,86400);b=project.number(timing['end'],0,86400)
+                if b<=a:raise ValueError()
+        except (ValueError,KeyError,TypeError):invalid.append(row.get('id','?'))
     has_original=any(r.get('original','').strip() for r in rows)
     has_translation=any(r.get('translation','').strip() for r in rows)
     sig=signature(doc)
