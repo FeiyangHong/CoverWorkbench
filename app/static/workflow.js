@@ -9,7 +9,7 @@ async function refreshWorkflow(reset=false){
  $('#watchEnabled').checked=!!state.watcher.enabled;
  $('#watchDescription').textContent=state.watcher.message||'启用后，新渲染文件稳定 10 秒即自动检查并打包。';
  $('#nativeInventory').textContent='调声预设：'+((state.presets||[]).map(p=>p.id+' (SV'+p.svMajor+')').join('、')||'尚未保存')+'；本曲乐句：'+((state.phrases||[]).join('、')||'尚未保存');
- if(reset){$('#deliveryAudio').value=state.defaultAudio;$('#videoAudio').value=state.defaultAudio;$('#videoPath').value='';$('#videoOffset').value=0;$('#burnSubtitles').checked=false;$('#durationMismatch').checked=false;renderPhrasePrep()}
+ if(reset){$('#deliveryAudio').value=state.defaultAudio;renderPhrasePrep()}
  if(phraseFingerprint!==JSON.stringify(bundle?.lyricPackage?.rows||[]))renderPhrasePrep();
  $('#jobCount').textContent=state.jobs.filter(j=>['running','queued'].includes(j.status)).length+' 个任务进行中';
  $('#jobList').innerHTML=state.jobs.length?state.jobs.map(j=>`<article class="job-card ${j.status}"><div class="job-top"><strong>${j.kind==='delivery'?'音频检查与交付包':'视频换音轨'}${j.fromWatcher?' · 自动':''}</strong><span>${workStatus[j.status]||j.status}</span></div><small>${new Date(j.createdAt*1000).toLocaleString()} · ${escapeHTML(j.id)}</small><div class="job-progress"><i style="width:${j.progress}%"></i></div><p>${escapeHTML(j.message)}</p>${j.qc?`<div class="job-metrics"><span>${Number(j.qc.duration).toFixed(1)} s</span><span>${j.qc.lufs??'—'} LUFS</span><span>${j.qc.truePeakDBTP??'—'} dBTP</span></div>`:''}${(j.warnings||[]).map(w=>`<p class="job-warning">${escapeHTML(w)}</p>`).join('')}<div class="job-downloads">${j.files.map(f=>`<a href="${escapeHTML(f.url)}" download>${escapeHTML(f.label)} ↗</a>`).join('')}</div></article>`).join(''):'<div class="workflow-empty"><span>↗</span><strong>让重复步骤自己运行</strong><p>提交一份渲染音频，检查报告、歌词、字幕和交付包会一起整理好。</p></div>';
@@ -40,7 +40,7 @@ function tokenCount(){const count=$('#phraseTokens').value.trim().split(/\s+/).f
 async function submitWork(kind,button){
  const id=pid;button.disabled=true;
  try{
-  const body=kind==='delivery'?{kind,audio:$('#deliveryAudio').value}:{kind,video:$('#videoPath').value,audio:$('#videoAudio').value,offset:Number($('#videoOffset').value),burnSubtitles:$('#burnSubtitles').checked,allowDurationMismatch:$('#durationMismatch').checked};
+  const body={kind,audio:$('#deliveryAudio').value};
   await api('/api/jobs/'+id,body);if(id===pid)await refreshWorkflow();toast('任务已加入队列，可以继续在 SV 工作');
  }catch(e){toast(e.message)}finally{button.disabled=false}
 }
@@ -52,7 +52,6 @@ $$('[data-open-tab]').forEach(b=>b.onclick=()=>$('.tabs [data-tab="'+b.dataset.o
 $('#phraseLine').onchange=preparePhrase;$('#phraseTokens').oninput=tokenCount;
 $('#copyPhrase').onclick=async()=>{try{await navigator.clipboard.writeText($('#phraseTokens').value);toast('歌词单位已复制；在 SV 选音符并运行 CW Phrase Lyrics')}catch(e){$('#phraseTokens').select();toast('请按 Ctrl+C 复制所选内容')}};
 $('#submitDelivery').onclick=()=>submitWork('delivery',$('#submitDelivery'));
-$('#submitVideo').onclick=()=>submitWork('video',$('#submitVideo'));
 $('#refreshJobs').onclick=()=>refreshWorkflow().catch(e=>toast(e.message));
 $('#watchEnabled').onchange=async()=>{try{await api('/api/watcher/'+pid,{enabled:$('#watchEnabled').checked});await refreshWorkflow()}catch(e){toast(e.message);refreshWorkflow()}};
 const workflowPolling=setInterval(()=>{if(bundle&&!$('#workflow').hidden)refreshWorkflow().catch(()=>{})},2500);

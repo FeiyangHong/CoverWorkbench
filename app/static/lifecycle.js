@@ -1,6 +1,7 @@
 /* Explicit local-server exit, shared by the main workbench and standalone pages. */
 (() => {
 'use strict';
+if(window.CW_VIDEO_EMBEDDED)return;
 let instance=null, polling=null, revision=0, exiting=false, observed=false;
 const channel=typeof BroadcastChannel==='function'?new BroadcastChannel('cw-service-lifecycle'):null;
 let host=document.querySelector('.header-actions');

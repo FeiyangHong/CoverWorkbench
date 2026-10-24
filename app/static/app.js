@@ -91,7 +91,7 @@ $('#overlaySelect').onchange=draw;
 $('#piano').onclick=e=>{const r=e.currentTarget.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;const box=hitboxes.find(b=>x>=b.x&&x<=b.x+b.width&&y>=b.y&&y<=b.y+b.height);if(box){focusNote(box.n);renderFlags()}else{audio.currentTime=Math.max(0,rangeStart+(x-34)/(r.width-34)*span);draw()}};
 $('#wave').onclick=e=>{const r=e.currentTarget.getBoundingClientRect();const t=(e.clientX-r.left)/r.width*bundle.project.duration;rangeStart=Math.max(0,Math.min(bundle.project.duration-span,t-span/2));seekAudio(t);draw()};
 window.addEventListener('resize',draw);
-$$('[data-tab]').forEach(button=>button.onclick=()=>{$$('[data-tab]').forEach(x=>x.classList.toggle('active',x===button));$$('.tab-panel').forEach(x=>x.hidden=x.id!==button.dataset.tab);if(button.dataset.tab==='review')draw()});
+$$('[data-tab]').forEach(button=>button.onclick=()=>{$$('[data-tab]').forEach(x=>x.classList.toggle('active',x===button));$$('.tab-panel').forEach(x=>x.hidden=x.id!==button.dataset.tab);if(button.dataset.tab==='review')draw();window.dispatchEvent(new CustomEvent('cw-workspace-change',{detail:{tab:button.dataset.tab}}))});
 function renderComparison(){
  const cmp=bundle.project.comparison||{};
  const definitions=[['sv2Native','SV2 Pro 2.2.1','本次原生歌声转 MIDI','在空白 SV2 工程读取二次分离主声。保存未经修正的音符与音素转录，蓝框显示本次结果。','https://dreamtonics.com/synthesizerv/'],['gameSmall','GAME small','歌声音符提取','读取同一条分离主声音频，比较边界与音高。绿色框显示模型结果。','https://github.com/openvpi/GAME'],['svAnchors','SV 歌词锚点','文本与音符对齐','按歌词读音匹配现有 SV 主声音符。省去模型下载，但时间会继承现有工程的偏差。','https://resource.dreamtonics.com/scripting/'],['whisperAlign','WhisperX / CTC','已知文本与音频对齐','使用已知歌词，不重新猜测歌词。演唱长音与和声需人工检查。','https://github.com/m-bain/whisperX']];

@@ -4,3 +4,5 @@
 .job-filename{font-weight:600;color:#685292;overflow-wrap:anywhere;margin:8px 0}.job-details{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}.job-details summary{cursor:pointer;font-size:11px;color:var(--muted)}.job-details .job-links{margin-top:12px}.job-error{overflow-wrap:anywhere;color:#986579}
 
 #overlay img{position:absolute;display:block;max-width:none;pointer-events:none}.caption-render-status{display:block;font-size:10px;color:#698c7f;margin-top:7px}.caption-render-status.approximate{color:#a57b3e}
+
+.embedded-help{display:none}.embedded body>header{display:none}.embedded main{max-width:none;margin:0;padding:22px 18px}.embedded .intro{margin-bottom:18px}.embedded .intro h1{font-size:27px}.embedded .embedded-help{display:inline-block;font-size:11px;float:right;color:#967ab9;margin-bottom:8px}.embedded .inspector{top:12px}.embedded .intro .eyebrow{font-size:9px}@media(max-width:760px){.embedded main{padding:14px 10px}.embedded .intro h1{font-size:23px}.embedded .intro{gap:15px}}

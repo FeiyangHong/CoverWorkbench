@@ -5,7 +5,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
  try{
   const context=await browser.newContext({viewport:{width:1440,height:1100}}),page=await context.newPage(),errors=[];
   page.on('pageerror',e=>errors.push(e.message));
-  await page.goto(process.argv[2]+'/video/index.html');await page.locator('#new').click();await page.locator('#newName').fill('Subtitle Undo');await page.locator('#promptForm button[type=submit]').click();await page.locator('[data-step="mv"]').waitFor();
+  await page.goto(process.argv[2]+'/video/index.html?standalone=1');await page.locator('#new').click();await page.locator('#newName').fill('Subtitle Undo');await page.locator('#promptForm button[type=submit]').click();await page.locator('[data-step="mv"]').waitFor();
   await page.evaluate(()=>{const ui=window.CWVideoStudio;ui.get().doc.cues=[{id:'A',start:1,end:3,original:'Original',translation:'Translation'},{id:'B',start:4,end:6,original:'Second',translation:'Second translation'}];ui.renderRows();ui.mark();});
   async function save(){await page.locator('#save').click();await page.waitForFunction(()=>!document.querySelector('#save').disabled&&document.querySelector('#dirty').textContent==='已保存');}
   async function reload(){await page.reload();await page.locator('[data-step="mv"]').waitFor();}

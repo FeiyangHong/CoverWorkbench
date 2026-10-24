@@ -46,7 +46,7 @@ function guideView(){
  }));
 }
 async function refreshChecks(){
- const state=ui.get();if(!state.doc||closed)return;const token=++request,id=state.doc.id;
+ const state=ui.get();if(!state.doc||closed||!state.visible)return;const token=++request,id=state.doc.id;
  try{const result=await ui.api('/api/video-check/'+encodeURIComponent(id),state.doc);if(token!==request||ui.get().doc?.id!==id)return;checks=result;guideView();}
  catch(e){if(token===request)guide.innerHTML=`<p class="error">引导检查未完成：${esc(e.message)}</p>`;}
 }
@@ -173,6 +173,6 @@ window.addEventListener('cw-video-change',e=>{
  renderTimeline();if(e.detail.type==='open')follow();scheduleChecks();
 });
 window.addEventListener('focus',()=>refreshChecks());
-const checkTimer=setInterval(()=>{if(!document.hidden)refreshChecks();},12000);
+const checkTimer=setInterval(()=>{if(!document.hidden&&ui.get().visible)refreshChecks();},12000);
 window.addEventListener('cw-workbench-exit',()=>{closed=true;clearTimeout(debounce);clearInterval(checkTimer);cancelAnimationFrame(animation);closeEditor(false);request++;});
 })();

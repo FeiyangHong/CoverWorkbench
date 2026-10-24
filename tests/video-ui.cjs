@@ -6,7 +6,7 @@ const {chromium}=require('playwright');
   const context=await browser.newContext({viewport:{width:1440,height:1100}});
   const page=await context.newPage();
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.goto(process.argv[2]+'/video/index.html');
+  await page.goto(process.argv[2]+'/video/index.html?standalone=1');
   await page.locator('#environment').filter({hasText:'本机处理'}).waitFor();
   await page.locator('#new').click();await page.locator('#newName').fill('Synthetic Video');await page.locator('#promptForm button[type=submit]').click();
   await page.locator('#name').filter({hasText:'Synthetic Video'}).waitFor();

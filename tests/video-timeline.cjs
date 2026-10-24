@@ -5,7 +5,7 @@ const {chromium}=require('playwright');
  try{
   const context=await browser.newContext({viewport:{width:1440,height:1100}}),page=await context.newPage(),errors=[];
   page.on('pageerror',e=>errors.push(e.message));
-  await page.goto(process.argv[2]+'/video/index.html');
+  await page.goto(process.argv[2]+'/video/index.html?standalone=1');
   await page.locator('#new').click();await page.locator('#newName').fill('Timeline Interactions');await page.locator('#promptForm button[type=submit]').click();
   await page.locator('#name').filter({hasText:'Timeline Interactions'}).waitFor();
   await page.locator('[data-step="mv"]').waitFor();

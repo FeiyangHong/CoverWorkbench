@@ -110,6 +110,7 @@ def main():
                 subprocess.run(['node', str(ROOT / 'tests/video-ui.cjs'), base], check=True, cwd=ROOT)
                 subprocess.run(['node', str(ROOT / 'tests/video-timeline.cjs'), base], check=True, cwd=ROOT)
                 subprocess.run(['node', str(ROOT / 'tests/video-undo.cjs'), base], check=True, cwd=ROOT)
+                subprocess.run(['node', str(ROOT / 'tests/video-shell.cjs'), base], check=True, cwd=ROOT)
                 subprocess.run(['node', str(ROOT / 'tests/lifecycle-ui.cjs'), base], check=True, cwd=ROOT)
             else:
                 assert request('/api/shutdown/local', {'confirm': True, 'instance': service['instance']})['state'] == 'stopping'
