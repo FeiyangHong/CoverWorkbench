@@ -40,6 +40,7 @@ jobs:
           python tests/video-workflow.py
           python tests/video-links.py
           python tests/production.py
+          python tests/asset-storage.py
           python tests/separation-workspaces.py
           python tools/release_check.py --for-public-release --ref HEAD
       - name: Install browser test dependencies

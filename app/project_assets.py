@@ -5,6 +5,8 @@ import threading
 
 from core import ROOT, read_json, save_json
 import daw
+import workspaces
+import asset_storage
 
 STORE = ROOT / 'config/project-assets.local.json'
 LOCK = threading.RLock()
@@ -31,7 +33,7 @@ def overrides(ident):
 
 def defaults(p):
     paths = {key: p.get('audio', {}).get(key, {}).get('original', '') for key in AUDIO_KEYS}
-    paths['svp'] = next((f['original'] for f in p.get('files', []) if str(f.get('original', '')).lower().endswith('.svp')), p.get('working', ''))
+    paths['svp'] = p.get('managedSVP') or next((f['original'] for f in p.get('files', []) if str(f.get('original', '')).lower().endswith('.svp')), p.get('working', ''))
     paths['song'] = p.get('dawCopy', {}).get('song', '')
     # Match saved build references, never song titles or guesses about filenames.
     builds = []
@@ -60,29 +62,44 @@ def status(ident):
         chosen = doc['projects'].get(ident, {})
         paths = {**defaults(p), **{k: v for k, v in chosen.items() if v}}
         items = {}
+        workspace = workspaces.root(p).resolve()
         for key, suffixes in TYPES.items():
             value = paths.get(key, '')
             exists = bool(value and Path(value).is_file() and Path(value).suffix.lower() in suffixes)
-            items[key] = {'label': LABELS[key], 'path': value, 'exists': exists, 'custom': bool(chosen.get(key))}
-        return {'id': ident, 'title': p['title'], 'revision': doc['revision'], 'assets': items}
+            items[key] = {'label': LABELS[key], 'path': value, 'exists': exists, 'custom': bool(chosen.get(key)),
+                          'managed': bool(value and Path(value).resolve().is_relative_to(workspace))}
+        return {'id': ident, 'title': p['title'], 'revision': doc['revision'], 'assets': items,
+                'workspace': str(workspace), 'copyWorkspace': str(workspaces.proposed(p))}
 
 
 def save(ident, body):
-    project(ident)
+    p = project(ident)
     fields = body.get('assets')
     if not isinstance(fields, dict) or set(fields) - set(TYPES):
         raise ValueError('未知的工程素材类型')
+    mode = body.get('storageMode', 'copy')
+    if mode not in ('copy', 'reference'):
+        raise ValueError('请选择复制到项目或仅引用原路径')
     values = {key: str(daw.local(value, TYPES[key])) if daw.clean_path(value) else '' for key, value in fields.items()}
     with LOCK:
         doc = document()
         if body.get('revision') != doc['revision']:
             raise ValueError('工程素材已在其他窗口更新，请刷新后重试')
-        if STORE.exists():
-            save_json(STORE.with_name('project-assets.local.previous.json'), doc)
-        doc['projects'][ident] = {**doc['projects'].get(ident, {}), **values}
-        doc['revision'] += 1
-        save_json(STORE, doc)
-    return status(ident)
+        # Allocate only for an actual copy, never when merely browsing or referencing.
+        root = workspaces.outputs(p) if mode == 'copy' and any(values.values()) else workspaces.root(p)
+        with asset_storage.Import(root) as transfer:
+            if mode == 'copy':
+                values = {key: str(transfer.asset(Path(value), key)) if value else '' for key, value in values.items()}
+                transfer.check()
+            if STORE.exists():
+                save_json(STORE.with_name('project-assets.local.previous.json'), doc)
+            doc['projects'][ident] = {**doc['projects'].get(ident, {}), **values}
+            doc['revision'] += 1
+            save_json(STORE, doc)
+            transfer.done = True
+            result = status(ident)
+            result['storage'] = {'mode': mode, 'copied': transfer.copied, 'reused': transfer.reused}
+            return result
 
 
 def register_generated(ident, values, baseline):

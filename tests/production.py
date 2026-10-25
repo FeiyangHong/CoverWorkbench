@@ -46,7 +46,7 @@ def main():
         assert state['assets']['svp']['path'] == str(paths['project.svp'])
         assert state['assets']['song']['path'] == str(paths['session.song'])
         assert state['assets']['accompaniment']['path'] == str(paths['backing.wav'])
-        state = assets.save('demo', {'revision': 0, 'assets': {'mix': '"' + str(paths['new.wav']) + '"', 'lead': str(paths['lead.wav'])}})
+        state = assets.save('demo', {'revision': 0, 'storageMode': 'reference', 'assets': {'mix': '"' + str(paths['new.wav']) + '"', 'lead': str(paths['lead.wav'])}})
         assert state['assets']['lead']['exists'] and state['assets']['mix']['custom']
         assert video_links.materials('demo')['audio']['path'] == str(paths['new.wav']), 'Project mix was not handed off to video sources'
         rejects(lambda: assets.save('demo', {'revision': 0, 'assets': {'mix': str(paths['final.wav'])}}), '其他窗口更新')

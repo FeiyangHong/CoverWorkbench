@@ -155,7 +155,7 @@ class MSSeparator:
             weights['song'].write_text('wait')
             conflict = jobs.submit(ident, {'mode': 'song'})
             edited = assets.status(ident)
-            assets.save(ident, {'revision': edited['revision'], 'assets': {'vocals': str(source)}})
+            assets.save(ident, {'revision': edited['revision'], 'storageMode': 'reference', 'assets': {'vocals': str(source)}})
             completed = wait(conflict)
             assert completed['status'] == 'completed' and 'vocals' in completed['skipped'], completed
             assert assets.status(ident)['assets']['vocals']['path'] == str(source)

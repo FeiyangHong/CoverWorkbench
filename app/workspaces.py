@@ -43,6 +43,19 @@ def root(p):
     return Path(registry().get(p['id'], p['pilot']))
 
 
+def proposed(p):
+    """Read-only preview of the copy destination, including legacy adoption."""
+    rows = registry()
+    if p['id'] in rows:
+        return Path(rows[p['id']])
+    base, label, number = ROOT / 'projects', suggested(p), 2
+    dest = base / label
+    while dest.exists():
+        dest = base / f'{label}_v{number}'
+        number += 1
+    return dest
+
+
 def allocate(p, folder_name=None):
     with LOCK:
         rows = registry()

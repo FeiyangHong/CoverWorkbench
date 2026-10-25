@@ -9,6 +9,7 @@ import uuid
 from core import ROOT, read_json, save_json, sha, parse_svp, audit
 from daw import local, media_info
 import workspaces
+import asset_storage
 
 LOCK = threading.Lock()
 
@@ -22,6 +23,10 @@ def create(body):
     parsed = parse_svp(source) if source else {'duration': 0, 'notes': [], 'tracks': []}
     if source and not parsed['notes']:
         raise ValueError('The SVP must contain at least one note')
+    if source:
+        for path in asset_storage.sv_references(raw, source.parent):
+            if not path.is_file():
+                raise ValueError('SVP 参考音频缺失：' + str(path))
     language = body.get('language', 'ja')
     if language not in ['ja', 'zh', 'en']:
         raise ValueError('Unsupported language')
@@ -55,32 +60,22 @@ def create(body):
         working = pilot / 'working/sv/project.svp'
         doc = copy.deepcopy(raw)
         doc.setdefault('renderConfig', {})['destination'] = str(pilot / 'exports/audio')
-        def resolve_media(obj):
-            if isinstance(obj, dict):
-                for key, value in obj.items():
-                    if key in ['filename', 'filePath', 'path'] and isinstance(value, str) and value.lower().endswith(('.wav', '.flac', '.mp3')):
-                        obj[key] = str((source.parent / value).resolve())
-                    else:
-                        resolve_media(value)
-            elif isinstance(obj, list):
-                for value in obj:
-                    resolve_media(value)
-        if source:
-            resolve_media(doc)
-        save_json(working, doc)
-        audio = {}
-        for role, path, info in media:
-            if role == 'source':
-                copied = pilot / 'source' / ('Original' + path.suffix.lower())
-                before = sha(path)
-                shutil.copy2(path, copied)
-                if sha(copied) != before or sha(path) != before:
-                    raise ValueError('原歌曲在复制时改变，请保存后重试')
-                path = copied
-            audio[role] = {'original': str(path), 'preview': str(path), 'duration': info['duration'],
-                           'format': {'sample_rate': info['rate'], 'channels': info['channels'], 'bits_per_raw_sample': info['bits']}}
+        with asset_storage.Import(pilot) as transfer:
+            if source:
+                transfer.remember(source)
+                doc = transfer.sv_document(source, doc, working.parent / 'Media')
+            save_json(working, doc)
+            audio = {}
+            for role, path, info in media:
+                path = transfer.asset(path, role)
+                audio[role] = {'original': str(path), 'preview': str(path), 'duration': info['duration'],
+                               'format': {'sample_rate': info['rate'], 'channels': info['channels'], 'bits_per_raw_sample': info['bits']}}
+            transfer.check()
+            if source and sha(source) != original_hash:
+                raise ValueError('Source changed during import; retry after saving in SV')
+            transfer.done = True
         project = {'id': ident, 'title': title, 'artist': artist, 'source': str((source or audio_source).parent) if source or audio_source else str(pilot / 'source'), 'pilot': str(pilot),
-                   'working': str(working), 'sv2Working': str(pilot / 'working/sv2/project.svp'), 'snapshot': str(snapshot), 'language': language,
+                   'working': str(working), 'managedSVP': str(working), 'sv2Working': str(pilot / 'working/sv2/project.svp'), 'snapshot': str(snapshot), 'language': language,
                    'files': [{'original': str(source), 'snapshot': str(snapshot), 'sha256': original_hash, 'snapshot_sha256': original_hash}] if source else [],
                    'audio': audio, 'duration': max([parsed['duration']] + [i[2]['duration'] for i in media]),
                    'metrics': {}, 'versions': ['source.svp'], 'selectedVersion': 'source.svp', 'waveform': [],
