@@ -119,8 +119,9 @@ def submit(ident, body):
         kind=body.get('kind')
         if kind not in ['preview','export','analyze','download']: raise ValueError('未知视频任务')
         if kind!='download':
-            if not doc['video'] or not doc['audio']: raise ValueError('请先选择视频与翻唱混音，并保存')
+            if (not doc['video'] and not doc.get('composition')) or not doc['audio']: raise ValueError('请先准备画面与翻唱混音，并保存')
             settings.executable('ffmpeg'); settings.executable('ffprobe')
+            if kind=='analyze' and doc.get('composition'):raise ValueError('拼接模式以成品混音为时间基准；请直接试听音乐与字幕，不使用整曲 MV 偏移分析')
         if kind in ['preview','export']:
             errors=video_workflow.blockers(doc)
             if errors:raise ValueError('；'.join(errors))
@@ -274,13 +275,19 @@ def correlate(j,doc,duration):
 def render(j):
     doc=j['snapshot']; folder=Path(j['folder'])
     if video_workflow.signature(doc)!=j['renderSignature']:raise ValueError('排队后素材发生变化，请重新提交任务')
-    vi=probe(j,doc['video']); ai=probe(j,doc['audio']); duration=vi['duration']
+    composition=doc.get('composition')
+    ai=probe(j,doc['audio'])
+    if composition:
+        vi={'duration':composition['duration'],'streams':[{'codec_type':'video','width':1920,'height':1080}]}
+    else:vi=probe(j,doc['video'])
+    duration=vi['duration']
     video=next((s for s in vi['streams'] if s['codec_type']=='video'),None)
     if not video: raise ValueError('所选视频没有画面流')
     if not any(s['codec_type']=='audio' for s in ai['streams']): raise ValueError('翻唱素材没有音频流')
     warnings=project.warnings(doc,duration)
     project.write_subtitles(doc,folder,duration)
-    before={doc[k]:sha(doc[k]) for k in ['video','audio']}
+    from video_edit import sources, build_picture
+    before={p:sha(p) for p in ([doc['audio']]+sources(doc) if composition else [doc['video'],doc['audio']])}
     if doc['audioOffset']+ai['duration']>duration+.1: warnings.append({'id':'audio','messages':['视频以原时长结束，尾部音频可能被裁切，请试听结尾']})
     if j['kind']=='analyze':
         reference=measure(j,doc['video'],label='测量原视频响度')
@@ -294,6 +301,7 @@ def render(j):
     is_preview=j['kind']=='preview'
     start=j['spec'].get('start',0); end=min(duration,j['spec'].get('end',duration))
     if start>=end: raise ValueError('预览区间超出视频长度')
+    picture=build_picture(j,start,end,ff,update) if composition else doc['video']
     base=aligned(doc,duration)
     measured=None
     if doc['audioMode']=='normalize':
@@ -304,6 +312,7 @@ def render(j):
         base+=f",aresample=192000,volume={doc['gainDb']}dB,alimiter=limit=0.794328:level=false:latency=true,aresample=48000"
     base+=f',atrim=start={start}:end={end},asetpts=PTS-STARTPTS'
     vfilter=[]
+    if composition:vfilter.append(f'setpts=PTS+{start}/TB')
     # Normalize SAR/rotation to a display canvas before positioning ASS subtitles.
     vfilter.append("scale=w='trunc(iw*sar/2)*2':h='trunc(ih/2)*2',setsar=1")
     height=720 if is_preview else int(doc['resolution']) if doc['resolution']!='source' else None
@@ -314,7 +323,7 @@ def render(j):
     ext='mp4' if is_preview else doc['format']
     partial=folder/('preview.rendering.'+ext if is_preview else 'video.rendering.'+ext)
     output=folder/j.get('outputName',video_storage.output_name(j,ext))
-    args=['-i',doc['video'],'-i',doc['audio'],'-map','0:v:0','-map','1:a:0','-vf',','.join(vfilter),'-af',base,
+    args=['-i',picture,'-i',doc['audio'],'-map','0:v:0','-map','1:a:0','-vf',','.join(vfilter),'-af',base,
           '-c:v','libx264','-preset','veryfast' if is_preview else 'medium','-crf',str(21 if is_preview else doc['crf']),
           '-pix_fmt','yuv420p','-fps_mode','passthrough' if is_preview or doc['fps']=='source' else 'cfr',
           '-c:a','aac','-b:a','320k','-ar','48000','-t',str(end-start),'-map_metadata','-1']
@@ -338,6 +347,12 @@ def render(j):
     check(j); partial.rename(output)
     report['sha256']=sha(output)
     save_json(folder/'report.json',report)
+    if composition:
+        # These names are created exclusively by this job; keep user media and snapshots.
+        for temp in [folder/'picture.mkv', folder/'picture-sequence.txt', *folder.glob('Picture [0-9][0-9][0-9].mkv')]:
+            try:
+                if temp.is_file():temp.unlink()
+            except OSError:pass
     update(j,result=report,files=[output.name,'captions.ass','captions.srt','caption-timing.json','snapshot.json','report.json'])
 
 

@@ -143,6 +143,9 @@ def validate(doc):
             row[key] = value
             overrides = row.get(key + 'Style', {})
             if overrides: style({**doc['styles'][key], **overrides})
+    if doc.get('composition') is not None:
+        from video_edit import validate as validate_composition
+        doc['composition'] = validate_composition(doc['composition'])
     return doc
 
 
@@ -168,6 +171,8 @@ def create(body, internal=None, directory=None):
     doc = dict(name=name, video='', audio='', audioOffset=0, subtitleShift=0, gainDb=0, targetLufs=-14,
                audioMode='gain', resolution='source', fps='source', format='mp4', crf=18, burn=True,
                styles={'original': dict(STYLE), 'translation': {**STYLE, 'size':44, 'y':1026}}, cues=[], provenance=[])
+    if body.get('mode')=='edit':
+        doc['composition']={'version':1,'duration':30,'fps':25,'width':1920,'height':1080,'allowGaps':False,'assets':[],'clips':[]}
     if internal is not None:
         doc.update(copy.deepcopy(internal))
         validate(doc)
@@ -194,7 +199,7 @@ def save(ident, body, internal=None):
     with LOCK:
         current = load(ident)
         if body.get('revision') != current['revision']: raise ValueError('工程已在另一窗口更新；请重新载入，避免覆盖其修改')
-        keys = {'video','audio','audioOffset','subtitleShift','gainDb','targetLufs','audioMode','resolution','fps','format','crf','burn','styles','cues'}
+        keys = {'video','audio','audioOffset','subtitleShift','gainDb','targetLufs','audioMode','resolution','fps','format','crf','burn','styles','cues','composition'}
         doc = validate({**current, **{k: copy.deepcopy(v) for k,v in body.items() if k in keys}})
         if internal is None:
             from video_workflow import reconcile

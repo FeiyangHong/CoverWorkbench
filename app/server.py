@@ -9,6 +9,7 @@ import lyrics, live, workflow, daw, desktop, projects, native_audio, song_mix, l
 import video_project, video_jobs, video_workflow, video_captions, video_links
 import project_assets, separation, separation_jobs, workspaces
 import sv_starter
+import video_edit
 live.prepare_manifest()
 
 PORT=int(os.environ.get("COVERWORKBENCH_PORT", "8765"))
@@ -102,8 +103,10 @@ class Handler(BaseHTTPRequestHandler):
             u=urlsplit(self.path);path=unquote(u.path);parts=path.strip('/').split('/')
             if path=='/api/lifecycle':return self.respond(lifecycle.status())
             if path=='/api/video-status':return self.respond({'projects':video_project.listing(),'dependencies':video_jobs.dependencies()})
-            if parts[:2]==['api','video-project'] and len(parts)==3:return self.respond({'project':video_project.load(parts[2]),'jobs':video_jobs.history(parts[2])})
+            if parts[:2]==['api','video-project'] and len(parts)==3:return self.respond({'project':video_project.load(parts[2]),'jobs':video_jobs.history(parts[2]),'folder':str(video_project.folder(parts[2]))})
             if parts[:2]==['api','video-history'] and len(parts)==3:return self.respond(video_jobs.history(parts[2]))
+            if parts[:2]==['api','video-library'] and len(parts)==3:return self.respond(video_edit.library(parts[2]))
+            if parts[0]=='video-edit-media' and len(parts)==4:return self.file(video_edit.media(parts[1],parts[2],parts[3]))
             if parts[:2]==['api','video-check'] and len(parts)==3:return self.respond(video_workflow.checks(video_project.load(parts[2]),video_jobs.history(parts[2])))
             if parts[:2]==['api','video-job'] and len(parts)==3:return self.respond(video_jobs.job(parts[2]))
             if parts[0]=='video-source' and len(parts)==3:return self.file(video_jobs.source(parts[1],parts[2]))
@@ -173,6 +176,10 @@ class Handler(BaseHTTPRequestHandler):
             if action=='music-video':return self.respond(video_links.perform(pid,body))
             if action=='video-caption':return self.respond(video_captions.render(body))
             if action=='video-create':return self.respond(video_project.create(body),201)
+            if action=='video-edit-copy':return self.respond(video_edit.edit_copy(pid,body),201)
+            if action=='video-media-import':return self.respond(video_edit.import_media(pid,body),201)
+            if action=='video-media-proxy':return self.respond(video_edit.proxy(pid,body))
+            if action=='video-media-info':return self.respond(video_edit.inspect(video_project.local(body.get('path'),video_edit.EXTENSIONS)))
             if action=='video-save':return self.respond(video_project.save(pid,body))
             if action=='video-check':
                 current=video_project.load(pid)

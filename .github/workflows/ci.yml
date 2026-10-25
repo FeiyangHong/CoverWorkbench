@@ -31,6 +31,7 @@ jobs:
           python tests/lifecycle.py
           python tests/json-storage.py
           python tests/video-studio.py
+          python tests/video-edit.py
           python tests/video-storage.py
           python tests/video-captions.py
           python tests/video-lanes.py

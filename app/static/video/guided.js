@@ -16,9 +16,9 @@ function guideView(){
  const step=checks.steps.find(s=>s.id===active)||checks.steps[0];
  const labels={audio:'跟随混音时间',video:'固定视频时间',unknown:'尚未确认'};
  let actions='';
- if(step.id==='mv')actions=button('download','粘贴链接下载 MV')+button('video','选择本地视频');
+ if(step.id==='mv')actions=doc.composition?button('library','导入本地素材')+button('download','下载画面素材'):button('download','粘贴链接下载 MV')+button('video','选择本地视频');
  if(step.id==='mix')actions=button('audio','选择最终混音');
- if(step.id==='align')actions=button('analyze','测量偏移与响度')+button('alignment','已试听三段，确认对齐')+button('aligned-audio',checks.audioAligned?'取消音轨已对齐标记':'此音轨已经对齐视频，锁定偏移为 0');
+ if(step.id==='align')actions=(doc.composition?button('listen-mix','试听音乐与字幕'):button('analyze','测量偏移与响度'))+button('alignment','已试听三段，确认对齐')+button('aligned-audio',checks.audioAligned?'取消音轨已对齐标记':'此音轨已经对齐视频，锁定偏移为 0');
  if(step.id==='captions'){
   actions=button('captions','导入双语字幕')+button('table','定位字幕表')+button('single-language',doc.workflow?.singleLanguage?'恢复双语要求':'本曲只用单语字幕');
   if(doc.cues.length&&checks.blockers.length)actions+=button('video-clock','确认现有字幕已是视频时间，不再加偏移');
@@ -34,7 +34,7 @@ function guideView(){
  $$('[data-step]').forEach(b=>b.onclick=()=>{active=b.dataset.step;expanded=true;guideView();});
  $('#guideNext').onclick=()=>{const i=checks.steps.findIndex(s=>s.id===active);active=checks.steps[Math.min(i+1,5)].id;guideView();};
  $$('[data-guide-action]').forEach(b=>b.onclick=ui.safe(async()=>{
-  const action=b.dataset.guideAction;
+  const action=b.dataset.guideAction;if(action==='library'){panel('sources');$('#editImport').click();return;}if(action==='listen-mix'){ui.seek(0);$('#play').click();return;}
   if(action==='video'||action==='audio'){panel('sources','#'+action);return;}
   if(action==='download'){panel('sources');$('#sources details').open=true;$('#url').focus();return;}
   if(['analyze','captions','preview','export'].includes(action)){$('#'+action).click();return;}
@@ -116,7 +116,7 @@ function tickPosition(){
  const a=num($('#in').value),b=num($('#out').value),loop=$('#captionLoop');if(loop){position(loop,a,b,g);loop.classList.toggle('enabled',$('#loop').checked);}
  const cueMap=new Map(s.doc.cues.map(r=>[r.id,r]));$$('[data-caption]').forEach(el=>{const r=cueMap.get(el.dataset.caption);const range=r?timing.get(r,el.dataset.language):null;el.classList.toggle('playing',!!range&&t>=range.start+num(s.doc.subtitleShift)&&t<range.end+num(s.doc.subtitleShift));el.classList.toggle('selected',r?.id===s.selected);});
  const playing=s.doc.cues.find(r=>r[activeLane]&&t>=timing.get(r,activeLane).start+num(s.doc.subtitleShift)&&t<timing.get(r,activeLane).end+num(s.doc.subtitleShift));
- const row=s.doc.cues.find(r=>r.id===(editing?.id||hovered))||(!ui.player.paused?playing:null)||s.doc.cues.find(r=>r.id===s.selected)||playing;
+ const row=s.doc.cues.find(r=>r.id===(editing?.id||hovered))||((!ui.player.paused||window.CWVideoEdit?.isPlaying())?playing:null)||s.doc.cues.find(r=>r.id===s.selected)||playing;
  $('#captionReadout').innerHTML=row?`<b>${esc(row.id)} · ${ui.fmt(timing.get(row,activeLane).start+num(s.doc.subtitleShift))} — ${ui.fmt(timing.get(row,activeLane).end+num(s.doc.subtitleShift))}</b><span>${esc(row.original)}</span><span>${esc(row.translation)}</span>`:'<span>点击字幕块查看完整原文和译文。</span>';
  maybeFollow();windowRange();
 }
@@ -125,7 +125,7 @@ function syncZoomControls(){const preset=[1,2,4,8,16,32,64].find(n=>Math.abs(n-z
 function saveZoom(){try{localStorage.setItem('cw-caption-zoom:'+ui.get().doc.id,JSON.stringify({mode:zoomMode,zoom,follow:$('#captionAutoFollow').checked,snap:$('#captionSnap').checked,linked:$('#captionLink').checked}));}catch{}}
 function setZoom(value,mode='manual',at=ui.get().position,pixel=viewport.clientWidth*.4){zoomMode=mode;zoom=Math.max(1,Math.min(64,value));renderTimeline();const g=geometry();viewport.scrollLeft=Math.max(0,at/g.duration*g.width-pixel);windowRange();saveZoom();}
 function follow(){const g=geometry(),x=ui.get().position/g.duration*g.width;viewport.scrollLeft=Math.max(0,x-viewport.clientWidth*.4);windowRange();}
-function maybeFollow(){if(!$('#captionAutoFollow').checked||ui.player.paused||drag||editing||zoom<=1||Date.now()<manualUntil)return;const g=geometry(),x=ui.get().position/g.duration*g.width;if(x<viewport.scrollLeft+8||x>viewport.scrollLeft+viewport.clientWidth*.82)follow();}
+function maybeFollow(){if(!$('#captionAutoFollow').checked||(ui.player.paused&&!window.CWVideoEdit?.isPlaying())||drag||editing||zoom<=1||Date.now()<manualUntil)return;const g=geometry(),x=ui.get().position/g.duration*g.width;if(x<viewport.scrollLeft+8||x>viewport.scrollLeft+viewport.clientWidth*.82)follow();}
 for(const id of ['captionAutoFollow','captionSnap','captionLink'])$('#'+id).onchange=()=>{saveZoom();if(id==='captionAutoFollow'&&$('#'+id).checked){manualUntil=0;follow();}};
 viewport.addEventListener('pointerdown',()=>{manualUntil=Date.now()+3000;});
 $('#captionZoom').onchange=()=>{const value=$('#captionZoom').value;setZoom(value==='auto'?1:Number(value),value==='auto'?'auto':'manual');};$('#captionFollow').onclick=follow;
@@ -137,7 +137,7 @@ for(const [id,direction] of [['captionPagePrev',-1],['captionPageNext',1]])$('#'
 $('#captionOverview').oninput=()=>{ui.seek(num($('#captionOverview').value));tickPosition();follow();};
 for(const [id,direction] of [['captionPrev',-1],['captionNext',1]])$('#'+id).onclick=()=>{const s=ui.get();if(!s.doc?.cues.length)return;const sorted=[...s.doc.cues].sort((a,b)=>timing.get(a,activeLane).start-timing.get(b,activeLane).start);let i=sorted.findIndex(r=>r.id===s.selected);if(i>=0)i+=direction;else if(direction>0){i=sorted.findIndex(r=>timing.get(r,activeLane).start+num(s.doc.subtitleShift)>s.position+.0001);if(i<0)i=sorted.length-1;}else{i=sorted.findLastIndex(r=>timing.get(r,activeLane).start+num(s.doc.subtitleShift)<s.position-.0001);}i=Math.max(0,Math.min(sorted.length-1,i));ui.select(sorted[i].id,true,activeLane);renderTimeline();follow();};
 for(const id of ['in','out','loop'])$('#'+id).addEventListener('input',()=>{renderTimeline();follow();});
-function animate(){tickPosition();if(!ui.player.paused&&!closed)animation=requestAnimationFrame(animate);}
+function animate(){tickPosition();if((!ui.player.paused||window.CWVideoEdit?.isPlaying())&&!closed)animation=requestAnimationFrame(animate);}
 ui.player.addEventListener('timeupdate',tickPosition);
 ui.player.addEventListener('seeked',()=>{if($('#captionAutoFollow').checked)follow();});
 new ResizeObserver(()=>{renderTimeline();follow();}).observe(viewport);
@@ -147,7 +147,7 @@ const textEditor=document.createElement('dialog');textEditor.id='captionTextEdit
 textEditor.innerHTML='<div class="preview-head"><strong id="captionTextTitle"></strong><button type="button" class="quiet" id="captionTextCancel" aria-label="取消字幕文字编辑">取消</button></div><textarea id="captionTextInput" maxlength="2000" aria-label="时间轴字幕文字"></textarea><p class="hint">文字即时更新预览；Ctrl + Enter 完成，Esc 取消本次修改。Ctrl + Z 撤销并收起编辑。保存工程后保留。</p><button type="button" id="captionTextDone">完成</button>';
 document.body.append(textEditor);
 function closeEditor(cancel){if(!editing)return;const previous=editing;editing=null;if(cancel&&ui.get().doc?.id===previous.project){const row=ui.get().doc.cues.find(r=>r.id===previous.id);if(row){row[previous.lane]=previous.text;ui.renderRows();ui.mark();}}textEditor.close();ui.history.end();}
-function openEditor(id,lane,rect){closeEditor(false);const state=ui.get(),row=state.doc.cues.find(r=>r.id===id);if(!row)return;activeLane=lane;ui.player.pause();ui.select(id,false,lane);ui.history.begin('修改'+(lane==='original'?'原文':'译文')+'文字');editing={id,lane,project:state.doc.id,text:row[lane]};$('#captionTextTitle').textContent=(lane==='original'?'编辑原文':'编辑译文')+' · '+id;$('#captionTextInput').value=row[lane];textEditor.show();textEditor.style.left=Math.max(12,Math.min(rect.left,innerWidth-textEditor.offsetWidth-12))+'px';textEditor.style.top=Math.max(12,Math.min(rect.bottom+8,innerHeight-textEditor.offsetHeight-12))+'px';$('#captionTextInput').focus();$('#captionTextInput').select();}
+function openEditor(id,lane,rect){closeEditor(false);const state=ui.get(),row=state.doc.cues.find(r=>r.id===id);if(!row)return;activeLane=lane;ui.stop();ui.select(id,false,lane);ui.history.begin('修改'+(lane==='original'?'原文':'译文')+'文字');editing={id,lane,project:state.doc.id,text:row[lane]};$('#captionTextTitle').textContent=(lane==='original'?'编辑原文':'编辑译文')+' · '+id;$('#captionTextInput').value=row[lane];textEditor.show();textEditor.style.left=Math.max(12,Math.min(rect.left,innerWidth-textEditor.offsetWidth-12))+'px';textEditor.style.top=Math.max(12,Math.min(rect.bottom+8,innerHeight-textEditor.offsetHeight-12))+'px';$('#captionTextInput').focus();$('#captionTextInput').select();}
 $('#captionTextInput').oninput=()=>{if(!editing||ui.get().doc?.id!==editing.project)return;const row=ui.get().doc.cues.find(r=>r.id===editing.id);if(!row)return;row[editing.lane]=$('#captionTextInput').value;ui.renderRows();ui.mark();};
 $('#captionTextInput').onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closeEditor(true);}else if(e.ctrlKey&&e.key==='Enter'){e.preventDefault();closeEditor(false);}};
 $('#captionTextDone').onclick=()=>closeEditor(false);$('#captionTextCancel').onclick=()=>closeEditor(true);
@@ -167,7 +167,7 @@ function specimens(){
 document.addEventListener('click',e=>{const b=e.target.closest('[data-font-browse]');if(!b)return;fontTarget=b.dataset.fontBrowse.split(':');$('#fontSearch').value='';specimens();fontDialog.showModal();});
 for(const id of ['fontSearch','fontSample','fontSize'])$('#'+id).oninput=specimens;$('#fontClose').onclick=()=>fontDialog.close();
 window.addEventListener('cw-video-change',e=>{
- if(e.detail.type==='open'){closeEditor(false);active=null;hovered=null;zoom=1;zoomMode='auto';manualUntil=0;$('#captionAutoFollow').checked=true;$('#captionSnap').checked=true;$('#captionLink').checked=false;try{const saved=JSON.parse(localStorage.getItem('cw-caption-zoom:'+ui.get().doc.id));if(saved&&['auto','manual'].includes(saved.mode)&&Number.isFinite(saved.zoom)){zoomMode=saved.mode;zoom=Math.max(1,Math.min(64,saved.zoom));$('#captionAutoFollow').checked=saved.follow!==false;$('#captionSnap').checked=saved.snap!==false;$('#captionLink').checked=saved.linked===true;}}catch{}checks=null;expanded=!(ui.get().doc?.video&&ui.get().doc?.audio&&ui.get().doc?.cues.length);}
+ if(e.detail.type==='open'){closeEditor(false);active=null;hovered=null;zoom=1;zoomMode='auto';manualUntil=0;$('#captionAutoFollow').checked=true;$('#captionSnap').checked=true;$('#captionLink').checked=false;try{const saved=JSON.parse(localStorage.getItem('cw-caption-zoom:'+ui.get().doc.id));if(saved&&['auto','manual'].includes(saved.mode)&&Number.isFinite(saved.zoom)){zoomMode=saved.mode;zoom=Math.max(1,Math.min(64,saved.zoom));$('#captionAutoFollow').checked=saved.follow!==false;$('#captionSnap').checked=saved.snap!==false;$('#captionLink').checked=saved.linked===true;}}catch{}checks=null;expanded=!(ui.get().doc?.composition||(ui.get().doc?.video&&ui.get().doc?.audio&&ui.get().doc?.cues.length));}
  if(e.detail.type==='play'){cancelAnimationFrame(animation);animation=requestAnimationFrame(animate);return;}
  if(e.detail.type==='pause'){cancelAnimationFrame(animation);tickPosition();return;}
  renderTimeline();if(e.detail.type==='open')follow();scheduleChecks();

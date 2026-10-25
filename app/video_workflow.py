@@ -9,7 +9,7 @@ from pathlib import Path
 import settings
 import video_project as project
 
-FIELDS = {'video','audio','audioOffset','subtitleShift','gainDb','targetLufs','audioMode','resolution','fps','format','crf','burn','styles','cues'}
+FIELDS = {'video','audio','audioOffset','subtitleShift','gainDb','targetLufs','audioMode','resolution','fps','format','crf','burn','styles','cues','composition'}
 
 
 def digest(value):
@@ -58,7 +58,12 @@ def reconcile(current,doc):
 
 
 def signature(doc):
-    return digest({'document':{k:doc.get(k) for k in FIELDS},'video':file_key(doc.get('video')),'audio':file_key(doc.get('audio'))})
+    fields = {k:doc.get(k) for k in FIELDS if k!='composition' or doc.get('composition')}
+    if doc.get('composition'):
+        from video_edit import sources
+        fields['composition'] = doc['composition']
+        fields['compositionMedia'] = [file_key(p) for p in sources(doc)]
+    return digest({'document':fields,'video':file_key(doc.get('video')),'audio':file_key(doc.get('audio'))})
 
 
 def alignment_signature(doc):
@@ -74,6 +79,9 @@ def blockers(doc):
     aligned=doc.get('workflow',{}).get('alignedAudio')
     if aligned and aligned==file_key(doc.get('audio')) and abs(offset)>.000001:
         errors.append('此音轨已标记为对齐视频，音频偏移应为 0；请清零，或取消已对齐标记')
+    if doc.get('composition'):
+        from video_edit import blockers as picture_blockers
+        errors += picture_blockers(doc)
     if not doc.get('cues'):return errors
     if state.get('clock') not in ['audio','video']:
         errors.append('字幕时间基准尚未确认：请选择字幕已是视频时间，或重新导入并指定混音时间')
@@ -86,6 +94,9 @@ def blockers(doc):
 
 def checks(doc,jobs):
     ready={k:bool(file_key(doc.get(k))) for k in ['video','audio']}
+    if doc.get('composition'):
+        from video_edit import blockers as picture_blockers
+        ready['video'] = not picture_blockers(doc)
     tools=bool(settings.executable('ffmpeg',False) and settings.executable('ffprobe',False))
     state=doc.get('timing',{});review=doc.get('workflow',{})
     errors=blockers(doc)
@@ -111,12 +122,13 @@ def checks(doc,jobs):
     missing_mv=[] if ready['video'] else ['下载并使用 MV，或选择存在的本地视频']
     if not ready['video'] and not (shutil.which('yt-dlp') or importlib.util.find_spec('yt_dlp')):
         missing_mv.append('链接下载需要可选视频工具；也可直接使用本地 MV')
-    add('mv','获取 MV',missing_mv,'本地素材也可直接完成这一步')
+    add('mv','准备画面' if doc.get('composition') else '获取 MV',missing_mv,'在媒体库导入素材并补齐画面时间轴' if doc.get('composition') else '本地素材也可直接完成这一步')
     add('mix','导入混音',[] if ready['audio'] else ['选择 Studio One 最终混音文件'],'请使用人声与伴奏已混好的版本')
     needs=[]
     if not all(ready.values()):needs.append('先准备 MV 和最终混音')
     if review.get('alignment')!=alignment_signature(doc):needs.append('比较开头、中段、结尾后，确认声音已对齐')
-    add('align','对齐声音',needs,'分析提供候选；试听确认记录会在素材或偏移改变后失效')
+    add('align','检查音乐与字幕' if doc.get('composition') else '对齐声音',needs,
+        '画面剪辑不移动音乐与字幕；请试听成片开头、中段和结尾' if doc.get('composition') else '分析提供候选；试听确认记录会在素材或偏移改变后失效')
     needs=[]
     if not has_original:needs.append('导入或填写原文字幕')
     if not has_translation and not review.get('singleLanguage'):needs.append('补充译文，或明确选择只用单语字幕')

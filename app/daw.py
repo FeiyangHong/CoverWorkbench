@@ -72,7 +72,7 @@ def output_base(value):
 
 def browse(body):
     kind=body.get('kind')
-    if kind not in ['project','song','audio','folder','video','caption','video-config','svp','launcher']:raise ValueError('无效的文件选择类型')
+    if kind not in ['project','song','audio','folder','video','video-media','caption','video-config','svp','launcher']:raise ValueError('无效的文件选择类型')
     sort=body.get('sort','modified-desc');folders_first=body.get('foldersFirst',True)
     if sort not in ['modified-desc','modified-asc','created-desc','name-asc','name-desc','size-desc','size-asc']:raise ValueError('无效的排序方式')
     text=clean_path(body.get('path'))
@@ -83,6 +83,7 @@ def browse(body):
     if not p.is_dir():raise ValueError('找不到可浏览的文件夹')
     extensions={'.song'} if kind=='song' else {'.svp','.song'} if kind=='project' else {'.wav','.flac','.aif','.aiff','.mp3','.m4a'}
     extensions={'video':{'.mp4','.webm','.mkv','.mov','.avi'},'caption':{'.lrc','.srt','.vtt'},'video-config':{'.toml'},'svp':{'.svp'},'launcher':{'.exe','.lnk'}}.get(kind,extensions)
+    if kind=='video-media':extensions={'.mp4','.webm','.mkv','.mov','.avi','.png','.jpg','.jpeg','.webp','.wav','.flac','.mp3','.m4a'}
     entries=[]
     try:
         for f in p.iterdir():
