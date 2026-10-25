@@ -147,11 +147,35 @@ def validate(value):
         keys.add(row['id']); out['clips'].append({'id': row['id'], 'asset': row['asset'], 'start': start,
             'duration': length, 'in': begin, 'fit': row.get('fit', 'contain'),
             'x': project.number(row.get('x', 0), -1, 1, '水平取景'), 'y': project.number(row.get('y', 0), -1, 1, '垂直取景')})
+        if row.get('transition') is not None:
+            tr = row['transition']
+            if not isinstance(tr, dict) or tr.get('type') not in ['dissolve', 'fade']:
+                raise ValueError('请选择交叉溶解或淡出淡入转场')
+            frames = round(project.number(tr.get('duration'), 2/fps, 10, '转场时长') * fps / 2) * 2
+            out['clips'][-1]['transition'] = {'type': tr['type'], 'duration': frames/fps, 'from': str(tr.get('from', ''))}
     out['clips'].sort(key=lambda c: c['start'])
     for left, right in zip(out['clips'], out['clips'][1:]):
         if right['start'] < left['start'] + left['duration'] - .5/fps:
             raise ValueError('画面片段重叠；第一版单轨请将片段接在前一段之后')
+    for i, right in enumerate(out['clips']):
+        tr = right.get('transition')
+        if not tr: continue
+        left = out['clips'][i-1] if i else None
+        if not left or tr['from'] != left['id'] or abs(right['start']-left['start']-left['duration']) > .5/fps:
+            raise ValueError('转场需要两个相邻且无空隙的画面片段')
+        if tr['duration'] > min(left['duration'], right['duration']) + .001:
+            raise ValueError('转场时长不能超过相邻较短片段的时长')
     return out
+
+
+def transitions(comp):
+    result = []
+    for i, right in enumerate(comp['clips']):
+        if right.get('transition'):
+            tr = right['transition']; half = round(tr['duration']*comp['fps']/2)
+            cut = round(right['start']*comp['fps'])
+            result.append({'start': cut-half, 'end': cut+half, 'left': comp['clips'][i-1], 'right': right, **tr})
+    return result
 
 
 def gaps(comp):
@@ -206,37 +230,70 @@ def edit_copy(ident, body):
     return target
 
 
+def picture_segments(comp, first, last):
+    """One frame grid for cuts, transition envelopes and preview slices."""
+    fps = comp['fps']; effects = transitions(comp)
+    boundaries = {first, last}
+    for clip in comp['clips']:
+        boundaries.update([round(clip['start']*fps), round((clip['start']+clip['duration'])*fps)])
+    for tr in effects: boundaries.update([tr['start'], tr['end']])
+    points = sorted(p for p in boundaries if first <= p <= last)
+    result = []
+    for a, b in zip(points, points[1:]):
+        tr = next((tr for tr in effects if tr['start'] <= a < tr['end']), None)
+        clip = next((c for c in comp['clips'] if round(c['start']*fps) <= a < round((c['start']+c['duration'])*fps)), None)
+        result.append((a, b, tr, clip))
+    return result
+
+
+def picture_input(comp, clip, a, b):
+    fps = comp['fps']; count = b-a
+    if not clip:
+        return ['-f', 'lavfi', '-i', f'color=c=black:s=1920x1080:r={fps}'], 'setsar=1'
+    source = next(x for x in comp['assets'] if x['id'] == clip['asset'])
+    if source['kind'] == 'image':
+        args = ['-loop', '1', '-framerate', str(fps), '-i', source['path']]
+        envelope = ''
+    else:
+        first = round(clip['start']*fps); last = first + round(clip['duration']*fps)
+        # Never reveal trimmed-away material. Extend first/last allowed frames instead.
+        local = max(0, min(a-first, last-first-1))
+        args = ['-ss', str(clip['in'] + local/fps), '-i', source['path']]
+        read = max(1, min(count, last-max(a, first)))
+        pre = max(0, first-a)
+        envelope = f',trim=end_frame={read},tpad=start_mode=clone:start={pre}:stop_mode=clone:stop={count},trim=end_frame={count}'
+    normal = "scale=w='trunc(iw*sar/2)*2':h='trunc(ih/2)*2',setsar=1,"
+    if clip['fit'] == 'cover':
+        fit = f"scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080:(iw-ow)*{(clip['x']+1)/2}:(ih-oh)*{(clip['y']+1)/2}"
+    else:
+        fit = f"scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)*{(clip['x']+1)/2}:(oh-ih)*{(clip['y']+1)/2}:black"
+    return args, normal + fit + f',fps={fps},format=yuv420p,settb=1/{fps},setpts=PTS-STARTPTS' + envelope
+
+
 def build_picture(job, start, end, execute, update):
-    """Render only the requested interval. Segment boundaries share one output-frame grid."""
+    """Render the requested interval using absolute transition times, independent of audio/captions."""
     comp = validate(job['snapshot']['composition']); fps = comp['fps']; folder = Path(job['folder'])
     first, last = round(start*fps), round(end*fps)
     if last <= first: raise ValueError('预览区间短于一帧')
-    segments = []; cursor = 0
-    for clip in comp['clips']:
-        a, b = round(clip['start']*fps), round((clip['start']+clip['duration'])*fps)
-        if a > cursor: segments.append((cursor, a, None))
-        segments.append((a, b, clip)); cursor = b
-    if cursor < round(comp['duration']*fps): segments.append((cursor, round(comp['duration']*fps), None))
-    segments = [(max(a, first), min(b, last), clip) for a,b,clip in segments if min(b,last)>max(a,first)]
-    entries = []
-    for index, (a, b, clip) in enumerate(segments):
+    segments = picture_segments(comp, first, last); entries = []
+    for index, (a, b, tr, clip) in enumerate(segments):
         update(job, stage=f'拼接画面 {index+1} / {len(segments)}', progress=5+int(50*index/max(1,len(segments))))
-        args = []
-        if clip:
-            source = next(x for x in comp['assets'] if x['id'] == clip['asset'])
-            if source['kind'] == 'image': args += ['-loop', '1', '-framerate', str(fps), '-i', source['path']]
-            else: args += ['-ss', str(clip['in'] + a/fps - clip['start']), '-i', source['path']]
-            normal = "scale=w='trunc(iw*sar/2)*2':h='trunc(ih/2)*2',setsar=1,"
-            if clip['fit'] == 'cover':
-                fit = f"scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080:(iw-ow)*{(clip['x']+1)/2}:(ih-oh)*{(clip['y']+1)/2}"
-            else: fit = f"scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)*{(clip['x']+1)/2}:(oh-ih)*{(clip['y']+1)/2}:black"
-            filters = normal + fit
+        if tr:
+            left_args, left_filter = picture_input(comp, tr['left'], a, b)
+            right_args, right_filter = picture_input(comp, tr['right'], a, b)
+            phase = f'min(1,max(0,(T*{fps}+{a-tr["start"]})/{tr["end"]-tr["start"]}))'
+            # Fade through legal-range black (Y=16, U/V=128), matching the browser black canvas.
+            if tr['type'] == 'dissolve':
+                blend = f"all_expr='A*(1-({phase}))+B*({phase})'"
+            else:
+                blend = ':'.join(f"c{i}_expr='(A-{black})*max(0,1-2*({phase}))+(B-{black})*max(0,2*({phase})-1)+{black}'" for i, black in enumerate([16, 128, 128]))
+            graph = f"[0:v]{left_filter}[l];[1:v]{right_filter}[r];[l][r]blend={blend}[v]"
+            args = left_args + right_args + ['-filter_complex_threads', '1', '-filter_complex', graph, '-map', '[v]']
         else:
-            args += ['-f', 'lavfi', '-i', f'color=c=black:s=1920x1080:r={fps}']; filters = 'setsar=1'
+            args, filters = picture_input(comp, clip, a, b)
+            args += ['-vf', filters+f',tpad=stop_mode=clone:stop_duration={1/fps},fps={fps},setpts=PTS-STARTPTS']
         name = f'Picture {index+1:03}.mkv'; output = folder/name
-        # Lossless intermediates avoid an extra lossy encode before final export.
-        execute(job, args + ['-an', '-vf', filters+f',tpad=stop_mode=clone:stop_duration={1/fps},fps={fps},setpts=PTS-STARTPTS', '-frames:v', str(b-a),
-                 '-c:v', 'ffv1', '-level', '3', '-threads', '2', '-pix_fmt', 'yuv420p', output], stage='拼接画面片段')
+        execute(job, args + ['-an', '-frames:v', str(b-a), '-c:v', 'ffv1', '-level', '3', '-threads', '2', '-pix_fmt', 'yuv420p', output], stage='渲染画面转场' if tr else '拼接画面片段')
         entries.append("file '" + name + "'")
     sequence = folder/'picture-sequence.txt'; sequence.write_text('\n'.join(entries), encoding='utf-8')
     output = folder/'picture.mkv'
