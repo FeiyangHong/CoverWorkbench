@@ -325,8 +325,12 @@ def render(j):
     output=folder/j.get('outputName',video_storage.output_name(j,ext))
     args=['-i',picture,'-i',doc['audio'],'-map','0:v:0','-map','1:a:0','-vf',','.join(vfilter),'-af',base,
           '-c:v','libx264','-preset','veryfast' if is_preview else 'medium','-crf',str(21 if is_preview else doc['crf']),
-          '-pix_fmt','yuv420p','-fps_mode','passthrough' if is_preview or doc['fps']=='source' else 'cfr',
+          '-pix_fmt','yuv420p','-fps_mode','cfr' if composition else 'passthrough' if is_preview or doc['fps']=='source' else 'cfr',
           '-c:a','aac','-b:a','320k','-ar','48000','-t',str(end-start),'-map_metadata','-1']
+    if composition:
+        # trim/setpts can clear the final packet duration; explicit CFR preserves its frame.
+        rate=doc['composition']['fps'] if is_preview or doc['fps']=='source' else int(doc['fps'])
+        args+=['-r',str(rate)]
     if ext=='mp4': args+=['-movflags','+faststart']
     args+=[str(partial)]
     ff(j,args,progress_duration=end-start,stage='渲染准确区间预览' if is_preview else '合成新版本视频')

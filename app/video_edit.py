@@ -165,6 +165,18 @@ def validate(value):
             raise ValueError('转场需要两个相邻且无空隙的画面片段')
         if tr['duration'] > min(left['duration'], right['duration']) + .001:
             raise ValueError('转场时长不能超过相邻较短片段的时长')
+    if value.get('fades') is not None:
+        fades = value['fades']
+        if not isinstance(fades, dict): raise ValueError('片头片尾淡化设置无效')
+        normalized = {}
+        for key in ['in', 'out']:
+            seconds = project.number(fades.get(key, 0), 0, 10, '画面淡入淡出时长')
+            frames = round(seconds*fps)
+            if seconds and frames < 2: raise ValueError('画面淡入淡出至少需要两帧')
+            normalized[key] = frames/fps
+        if sum(round(t*fps) for t in normalized.values()) > round(out['duration']*fps):
+            raise ValueError('片头淡入与片尾淡出总时长不能超过成片时长')
+        if any(normalized.values()): out['fades'] = normalized
     return out
 
 
@@ -267,7 +279,20 @@ def picture_input(comp, clip, a, b):
         fit = f"scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080:(iw-ow)*{(clip['x']+1)/2}:(ih-oh)*{(clip['y']+1)/2}"
     else:
         fit = f"scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)*{(clip['x']+1)/2}:(oh-ih)*{(clip['y']+1)/2}:black"
-    return args, normal + fit + f',fps={fps},format=yuv420p,settb=1/{fps},setpts=PTS-STARTPTS' + envelope
+    return args, normal + fit + f',fps={fps},format=yuv420p,settb=1/{fps},setpts=PTS-STARTPTS' + envelope + f',settb=AVTB,setpts=N/({fps}*TB)'
+
+
+def picture_fades(comp, first):
+    """Apply picture-only fades on the absolute frame clock, including partial previews."""
+    fades = comp.get('fades', {}); fps = comp['fps']; effects = []
+    for key in ['in', 'out']:
+        frames = round(fades.get(key, 0)*fps)
+        if not frames: continue
+        start = 0 if key == 'in' else (round(comp['duration']*fps)-frames)/fps
+        effects.append(f'fade=t={key}:st={start}:d={(frames-1)/fps}')
+    # Frame-index timestamps avoid fractional PTS truncation at segment joins.
+    if not effects: return f',settb=AVTB,setpts=N/({fps}*TB)'
+    return f',settb=AVTB,setpts=(N+{first})/({fps}*TB),' + ','.join(effects) + f',setpts=N/({fps}*TB)'
 
 
 def build_picture(job, start, end, execute, update):
@@ -287,14 +312,14 @@ def build_picture(job, start, end, execute, update):
                 blend = f"all_expr='A*(1-({phase}))+B*({phase})'"
             else:
                 blend = ':'.join(f"c{i}_expr='(A-{black})*max(0,1-2*({phase}))+(B-{black})*max(0,2*({phase})-1)+{black}'" for i, black in enumerate([16, 128, 128]))
-            graph = f"[0:v]{left_filter}[l];[1:v]{right_filter}[r];[l][r]blend={blend}[v]"
+            graph = f"[0:v]{left_filter}[l];[1:v]{right_filter}[r];[l][r]blend={blend}{picture_fades(comp, a)}[v]"
             args = left_args + right_args + ['-filter_complex_threads', '1', '-filter_complex', graph, '-map', '[v]']
         else:
             args, filters = picture_input(comp, clip, a, b)
-            args += ['-vf', filters+f',tpad=stop_mode=clone:stop_duration={1/fps},fps={fps},setpts=PTS-STARTPTS']
+            args += ['-vf', filters+f',tpad=stop_mode=clone:stop_duration={1/fps},fps={fps},setpts=PTS-STARTPTS'+picture_fades(comp, a)]
         name = f'Picture {index+1:03}.mkv'; output = folder/name
-        execute(job, args + ['-an', '-frames:v', str(b-a), '-c:v', 'ffv1', '-level', '3', '-threads', '2', '-pix_fmt', 'yuv420p', output], stage='渲染画面转场' if tr else '拼接画面片段')
-        entries.append("file '" + name + "'")
+        execute(job, args + ['-an', '-frames:v', str(b-a), '-r', str(fps), '-fps_mode', 'cfr', '-c:v', 'ffv1', '-level', '3', '-threads', '2', '-pix_fmt', 'yuv420p', output], stage='渲染画面转场' if tr else '拼接画面片段')
+        entries.extend(["file '" + name + "'", f"duration {(b-a)/fps:.9f}"])
     sequence = folder/'picture-sequence.txt'; sequence.write_text('\n'.join(entries), encoding='utf-8')
     output = folder/'picture.mkv'
     execute(job, ['-f', 'concat', '-safe', '0', '-i', sequence, '-c', 'copy', output], stage='组装画面时间轴')

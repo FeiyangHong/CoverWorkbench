@@ -2,6 +2,7 @@
 from pathlib import Path
 import argparse
 import copy
+import json
 import importlib.util
 import subprocess
 import sys
@@ -46,6 +47,13 @@ def main():
             try: edit.validate(bad)
             except ValueError: pass
             else: raise AssertionError(case)
+        for values in [{'in':.8,'out':.8},{'in':0,'out':.12}]:
+            faded=edit.validate({**comp,'fades':values});assert faded['fades']==values
+        assert 'fades' not in edit.validate({**comp,'fades':{'in':0,'out':0}})
+        for values in [{'in':float('nan')},{'in':.01},{'out':-1},{'in':3,'out':2}]:
+            try:edit.validate({**comp,'fades':values})
+            except ValueError:pass
+            else:raise AssertionError(values)
         if args.installed:
             ff = settings.executable('ffmpeg')
             # Green is trimmed away. A transition must hold the last red frame, never reveal green.
@@ -65,7 +73,7 @@ def main():
             def rgb(path, t, x=638):
                 raw = edit.command([ff,'-v','error','-i',path,'-vf',f"select='eq(n,{round(t*25)})',crop=2:2:{x}:358",
                                     '-frames:v','1','-f','rawvideo','-pix_fmt','rgb24','-'])
-                assert len(raw)>=3
+                assert len(raw)>=3,(t,edit.command([settings.executable('ffprobe'),'-v','error','-count_frames','-show_entries','stream=nb_read_frames,r_frame_rate,duration','-of','json',path]).decode())
                 return list(raw[:3])
             for kind in ['dissolve','fade']:
                 doc['composition']['clips'][1]['transition']['type'] = kind
@@ -93,11 +101,28 @@ def main():
                 assert edge[2]<20 and edge[0] < 150,edge
                 for t in [2.04,2.12,2.2]: assert rgb(fullpath,t)[1]<20,'Trimmed green material leaked'
                 assert all(doc[k]==v for k,v in fixed.items())
+            doc['composition']['fades']={'in':.8,'out':.8}
+            doc=project.save(doc['id'],doc);assert all(doc[k]==v for k,v in fixed.items())
+            full=support.wait(jobs.submit(doc['id'],{'kind':'export'}))
+            fullpath=jobs.media(doc['id'],full['id'],'video.mp4');paths.append(fullpath)
+            for a,b in [(.24,.64),(3.4,4)]:
+                preview=support.wait(jobs.submit(doc['id'],{'kind':'preview','start':a,'end':b}))
+                previewpath=jobs.media(doc['id'],preview['id'],'preview.mp4')
+                t=round((a+b)/2*25)/25
+                first,second=rgb(fullpath,t),rgb(previewpath,round(t-a,3))
+                assert max(abs(x-y) for x,y in zip(first,second))<12,('end fade parity',t,first,second)
+            counts=json.loads(edit.command([settings.executable('ffprobe'),'-v','error','-select_streams','v','-count_frames','-show_entries','stream=nb_read_frames','-of','json',fullpath]))
+            assert int(counts['streams'][0]['nb_read_frames'])==100,'Retain every picture frame including the final black frame'
+            assert max(rgb(fullpath,0))<8 and max(rgb(fullpath,3.96))<8,'First and last frames must be black'
+            assert abs(rgb(fullpath,.4)[0]-253*10/19)<12
+            assert abs(rgb(fullpath,3.6)[2]-254*9/19)<12
+            assert abs(full['result']['output']['duration']-4)<.05
+            assert all(doc[k]==v for k,v in fixed.items())
             # Picture effects must not alter the rendered music stream.
             music = [edit.command([ff,'-v','error','-i',p,'-vn','-f','s16le','-acodec','pcm_s16le','-']) for p in paths]
-            assert music[0]==music[1]
+            assert all(m==music[0] for m in music)
             assert all(sha(p)==h for p,h in original.items())
-            print('PASS: real dissolve/fade, held trim edges, letterboxing, partial/full phase and duration parity, identical audio and fixed captions')
+            print('PASS: real dissolve/fade, held trim edges, letterboxing, partial/full phase and duration parity, independent head/tail fades, identical audio and fixed captions')
     print('PASS: fixed-cut transition schema, adjacent-pair validation and absolute frame intervals')
 
 
