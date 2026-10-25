@@ -5,10 +5,10 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
  try{
   const context=await browser.newContext({viewport:{width:1440,height:1100}}),page=await context.newPage(),errors=[];
   page.on('pageerror',e=>errors.push(e.message));
-  await page.goto(process.argv[2]+'/video/index.html?standalone=1');await page.locator('#new').click();await page.locator('#newName').fill('Subtitle Undo');await page.locator('#promptForm button[type=submit]').click();await page.locator('[data-step="mv"]').waitFor();
+  await page.goto(process.argv[2]+'/video/index.html?standalone=1');await page.locator('#new').click();await page.locator('#newName').fill('Subtitle Undo');await page.locator('#promptForm button[type=submit]').click();await page.locator('body.has-document').waitFor();await page.locator('#workflowDetails').evaluate(el=>el.open=true);await page.locator('[data-step="mv"]').waitFor();
   await page.evaluate(()=>{const ui=window.CWVideoStudio;ui.get().doc.cues=[{id:'A',start:1,end:3,original:'Original',translation:'Translation'},{id:'B',start:4,end:6,original:'Second',translation:'Second translation'}];ui.renderRows();ui.mark();});
   async function save(){await page.locator('#save').click();await page.waitForFunction(()=>!document.querySelector('#save').disabled&&document.querySelector('#dirty').textContent==='已保存');}
-  async function reload(){await page.reload();await page.locator('[data-step="mv"]').waitFor();}
+  async function reload(){await page.reload();await page.locator('body.has-document').waitFor();await page.locator('#workflowDetails').evaluate(el=>el.open=true);await page.locator('[data-step="mv"]').waitFor();}
   const status=()=>page.evaluate(()=>window.CWVideoStudio.history.status());
   const content=()=>page.evaluate(()=>structuredClone(window.CWVideoStudio.get().doc.cues));
   const text=()=>page.locator('[data-cue="A:original"]');
@@ -47,7 +47,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
   await page.locator('#reload').click();await page.waitForFunction(()=>window.CWVideoStudio.get().doc.timing?.clock==='audio');
   const id=await page.evaluate(()=>window.CWVideoStudio.get().doc.cues[0].id),original=page.locator('[data-cue="'+id+':original"]');
   await page.evaluate(()=>{const ui=window.CWVideoStudio;ui.get().doc.cues[0].translationTiming={start:1.123456,end:3.234567};ui.mark();});
-  await page.locator('#audioOffset').fill('2');await original.fill('Offset edit');await save();assert.equal((await content())[0].start,3);
+  await page.locator('[data-panel=sound]').click();await page.locator('#audioOffset').fill('2');await original.fill('Offset edit');await save();assert.equal((await content())[0].start,3);
   await page.locator('[data-history="undo"]').click();assert.equal(await original.inputValue(),'First line');assert.equal((await content())[0].start,3);await save();
   const reconciled=await page.evaluate(()=>window.CWVideoStudio.api('/api/video-project/'+window.CWVideoStudio.get().doc.id));assert.equal(reconciled.project.cues[0].start,3);assert.equal(reconciled.project.timing.appliedAudioOffset,2);assert.equal(reconciled.project.cues[0].translationTiming.start,3.123456);
   await page.locator('[data-history="redo"]').click();assert.equal(await original.inputValue(),'Offset edit');assert.equal((await content())[0].start,3);

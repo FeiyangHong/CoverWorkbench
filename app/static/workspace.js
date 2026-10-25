@@ -3,10 +3,14 @@
 'use strict';
 const $=s=>document.querySelector(s),tabs=[...document.querySelectorAll('.tabs [data-tab]')];
 let frame=null,editor=null,active=false,lastMusic='workflow',metadata=null,metadataKey='',pendingProject=null,navigating=false,restoring=false,exited=false;
+const focusButton=document.createElement('button');focusButton.id='videoFocusToggle';focusButton.className='button ghost';focusButton.type='button';focusButton.hidden=true;$('.header-actions').prepend(focusButton);
+let focused=false;try{focused=localStorage.getItem('cw-video-focus')==='1';}catch{}
+function focusChrome(){document.body.classList.toggle('video-focus',active&&focused);focusButton.hidden=!active;focusButton.textContent=focused?'恢复导航':'专注编辑';focusButton.setAttribute('aria-pressed',String(focused));}
+focusButton.onclick=()=>{focused=!focused;try{localStorage.setItem('cw-video-focus',focused?'1':'0');}catch{}focusChrome();};
 const shelf=$('#videoProjectShelf'),list=$('#videoProjects'),count=$('#videoProjectCount'),title=$('#videoProjectTitle');
 function route(tab,project,replace=false){const url=new URL(location.href);if(url.searchParams.get('tab')===tab&&(url.searchParams.get('videoProject')||null)===(tab==='video'?project||null:null))return;url.searchParams.set('tab',tab);if(tab==='video'&&project)url.searchParams.set('videoProject',project);else url.searchParams.delete('videoProject');if(url.href!==location.href)history[replace?'replaceState':'pushState']({},'',url);}
 function chrome(){
- document.body.classList.toggle('is-video-workspace',active);shelf.hidden=!active;
+ document.body.classList.toggle('is-video-workspace',active);focusChrome();shelf.hidden=!active;
  document.querySelectorAll('[data-workspace]').forEach(b=>b.setAttribute('aria-current',(b.dataset.workspace==='video')===active?'page':'false'));
  title.textContent=metadata?.name||'视频制作';document.title=active?(metadata?.name?metadata.name+' · ':'')+'视频制作 · CoverWorkbench':'CoverWorkbench';
 }

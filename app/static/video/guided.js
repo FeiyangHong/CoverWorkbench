@@ -8,7 +8,7 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 let checks=null,active=null,request=0,debounce=null,closed=false,zoom=1,zoomMode='auto',drag=null,animation=null,expanded=true,hovered=null,activeLane='original',editing=null,manualUntil=0;
 const guide=$('#videoGuide'),host=$('#subtitleTimeline');
 const num=v=>Number.isFinite(Number(v))?Number(v):0;
-function panel(name,target){$(`[data-panel="${name}"]`)?.click();const el=target?$(target):$('#'+name);el?.scrollIntoView({block:'nearest',behavior:'smooth'});if(el?.matches('input'))el.focus();}
+function panel(name,target){if(window.CWVideoView){window.CWVideoView.panel(name,target);return;}$(`[data-panel="${name}"]`)?.click();const el=target?$(target):$('#'+name);el?.scrollIntoView({block:'nearest',behavior:'smooth'});if(el?.matches('input'))el.focus();}
 function button(action,label,disabled=false){return `<button type="button" class="quiet" data-guide-action="${action}" ${disabled?'disabled':''}>${label}</button>`;}
 function guideView(){
  const {doc,dirty}=ui.get();if(!doc||!checks)return;
@@ -40,7 +40,7 @@ function guideView(){
   if(['analyze','captions','preview','export'].includes(action)){$('#'+action).click();return;}
   if(action==='layout'){panel('layout');return;}
   if(action==='output'){panel('output');return;}
-  if(action==='table'){$('#cueList').scrollIntoView({behavior:'smooth',block:'center'});return;}
+  if(action==='table'){window.CWVideoView?.showTable();$('#cueList').scrollIntoView({behavior:'smooth',block:'center'});return;}
   if(action==='clear-shift'){$('#subtitleShift').value=0;$('#subtitleShift').dispatchEvent(new Event('input'));await ui.save();return;}
   await ui.review(action==='preview-reviewed'?'preview':action);await refreshChecks();
  }));

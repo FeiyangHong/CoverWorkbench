@@ -8,7 +8,7 @@ const {chromium}=require('playwright');
   await page.goto(process.argv[2]+'/video/index.html?standalone=1');
   await page.locator('#new').click();await page.locator('#newName').fill('Timeline Interactions');await page.locator('#promptForm button[type=submit]').click();
   await page.locator('#name').filter({hasText:'Timeline Interactions'}).waitFor();
-  await page.locator('[data-step="mv"]').waitFor();
+  await page.locator('body.has-document').waitFor();await page.locator('#workflowDetails').evaluate(el=>el.open=true);await page.locator('[data-step="mv"]').waitFor();
   const lane=key=>page.locator(`.lane-${key} [data-caption="A"]`);
   const ranges=()=>page.evaluate(()=>{const r=window.CWVideoStudio.get().doc.cues[0],t=window.CWCaptionTiming;return {original:t.get(r,'original'),translation:t.get(r,'translation')};});
   async function reset(independent=false){

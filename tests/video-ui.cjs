@@ -10,7 +10,7 @@ const {chromium}=require('playwright');
   await page.locator('#environment').filter({hasText:'本机处理'}).waitFor();
   await page.locator('#new').click();await page.locator('#newName').fill('Synthetic Video');await page.locator('#promptForm button[type=submit]').click();
   await page.locator('#name').filter({hasText:'Synthetic Video'}).waitFor();
-  await page.locator('[data-step="mv"]').waitFor();
+  await page.locator('body.has-document').waitFor();await page.locator('#workflowDetails').evaluate(el=>el.open=true);await page.locator('[data-step="mv"]').waitFor();
   if(await page.locator('[data-step]').count()!==6)throw Error('Six-step guide missing');
   await page.locator('[data-step="mv"]').click();await page.getByText('下载并使用 MV，或选择存在的本地视频',{exact:true}).waitFor();
   await page.locator('#add').click();await page.locator('[data-cue$=":original"]').fill('A synthetic line');

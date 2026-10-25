@@ -20,7 +20,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
   let link=await api('/api/music-video/'+music.id),doc=(await api('/api/video-project/'+link.linkedId)).project;
   assert.equal(doc.audio,mix);assert.equal(doc.cues[0].translation,'音乐译文');assert.equal(doc.cues[0].start,1);
   const id=doc.id;
-  await child.locator('[data-cue="L0001:original"]').fill('Video-side edit');await child.locator('#subtitleShift').fill('.25');
+  await child.locator('[data-cue="L0001:original"]').fill('Video-side edit');await child.locator('[data-panel=sound]').click();await child.locator('#subtitleShift').fill('.25');
   await page.locator('#mvReturnMusic').click();await page.locator('#musicVideoOpen').click();
   assert.equal(await child.locator('[data-cue="L0001:original"]').inputValue(),'Video-side edit','Reentry replaced a video draft');
   await page.locator('#mvManageFromVideo').click();await page.waitForFunction(()=>!document.querySelector('#mvSubmit').disabled);

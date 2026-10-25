@@ -17,6 +17,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
   assert.equal(new URL(page.url()).pathname,'/');assert.equal(await child.locator('#cwExitButton').count(),0);assert.equal(await page.locator('#cwExitButton').count(),1);assert.ok(!await child.locator('body>header').isVisible());assert.ok(!await page.locator('.project-heading').isVisible());
   await page.locator('#videoProjects [data-video-project="'+a+'"]').waitFor();
   const frame=page.frames().find(f=>f.url().includes('embed=1'));
+  const beforeFocus=await child.locator('#dirty').innerText(),normalHeight=(await page.locator('#videoWorkspaceFrame').boundingBox()).height;await page.locator('#videoFocusToggle').click();assert.ok(!await page.locator('.tabs').isVisible());assert.ok((await page.locator('#videoWorkspaceFrame').boundingBox()).height>normalHeight+20);assert.equal(await child.locator('#dirty').innerText(),beforeFocus);await page.locator('#videoFocusToggle').click();assert.ok(await page.locator('.tabs').isVisible());
   await child.locator('[data-cue="A:original"]').fill('Draft caption');await child.locator('#captionZoom').selectOption('4');
   await frame.evaluate(()=>{const p=window.CWVideoStudio.player;p.currentTime=2;window.pauseCalls=0;const pause=p.pause.bind(p);p.pause=()=>{window.pauseCalls++;pause();};});
   const environmentRefresh=page.waitForRequest(r=>r.url().endsWith('/api/video-status'));await page.evaluate(()=>window.dispatchEvent(new Event('cw-environment-changed')));await environmentRefresh;
