@@ -32,7 +32,10 @@ def inspect(path):
     duration = 5. if image else float(info.get('format', {}).get('duration', 0))
     if not math.isfinite(duration) or duration <= 0:
         raise ValueError('无法读取有效的素材时长')
+    audio = next((s for s in info['streams'] if s['codec_type'] == 'audio'), None)
     return {'kind': 'image' if image else 'video' if video else 'audio', 'duration': duration,
+            'hasAudio': audio is not None, 'audioCodec': audio.get('codec_name', '') if audio else '',
+            'videoCodec': video.get('codec_name', '') if video else '',
             'width': video.get('width', 0) if video else 0, 'height': video.get('height', 0) if video else 0}
 
 
@@ -93,14 +96,14 @@ def proxy(ident, body):
         item = asset(ident, body.get('asset'))
         if not item or item['kind'] != 'video':
             raise ValueError('请选择视频素材')
-        output = project.folder(ident) / 'Cache/Proxies' / (item['id'] + '.mp4')
+        output = project.folder(ident) / 'Cache/Proxies' / (item['id'] + '-av.mp4')
         output.parent.mkdir(parents=True, exist_ok=True)
         if not output.exists():
             partial = output.with_name(item['id'] + '.rendering.mp4')
-            command([settings.executable('ffmpeg'), '-v', 'error', '-nostdin', '-i', item['path'], '-an',
+            command([settings.executable('ffmpeg'), '-v', 'error', '-nostdin', '-i', item['path'], '-map', '0:v:0', '-map', '0:a:0?',
                      '-vf', 'scale=960:540:force_original_aspect_ratio=decrease:force_divisible_by=2,setsar=1',
                      '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '24', '-pix_fmt', 'yuv420p',
-                     '-movflags', '+faststart', '-y', partial], timeout=900)
+                     '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', '-y', partial], timeout=900)
             partial.replace(output)
         rows = library(ident)
         for row in rows:

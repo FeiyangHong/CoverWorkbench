@@ -115,6 +115,7 @@ def main():
                 subprocess.run(['node', str(ROOT / 'tests/production-ui.cjs'), base], check=True, cwd=ROOT)
                 subprocess.run(['node', str(ROOT / 'tests/workspaces-ui.cjs'), base], check=True, cwd=ROOT)
                 subprocess.run(['node', str(ROOT / 'tests/unicode-names-ui.cjs'), base], check=True, cwd=ROOT)
+                subprocess.run(['node', str(ROOT / 'tests/video-monitor-ui.cjs'), base], check=True, cwd=ROOT)
                 subprocess.run(['node', str(ROOT / 'tests/video-edit-ui.cjs'), base], check=True, cwd=ROOT)
                 subprocess.run(['node', str(ROOT / 'tests/lifecycle-ui.cjs'), base], check=True, cwd=ROOT)
             else:

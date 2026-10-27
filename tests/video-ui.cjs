@@ -108,8 +108,8 @@ const {chromium}=require('playwright');
   if(!await page.locator('#captionScroll').evaluate(el=>el.scrollWidth>el.clientWidth*2))throw Error('Timeline zoom missing');
   const block=page.locator('.lane-original [data-caption]').first();await block.scrollIntoViewIfNeeded();
   await page.locator('#captionScroll').evaluate(el=>el.scrollLeft=0);
-  const box=await block.boundingBox();await page.mouse.move(box.x+22,box.y+12);await page.mouse.down();await page.mouse.move(box.x+82,box.y+12,{steps:5});await page.mouse.up();
-  if(!await page.evaluate(()=>{const r=window.CWVideoStudio.get().doc.cues[0],t=window.CWCaptionTiming;return t.get(r,'original').start>0&&t.get(r,'translation').start===r.start;}))throw Error('Caption drag did not independently move original time');
+  const box=await block.boundingBox(),hit=await page.evaluate(b=>document.elementFromPoint(b.x+22,b.y+12)?.outerHTML.slice(0,250),box);await page.mouse.move(box.x+22,box.y+12);await page.mouse.down();await page.mouse.move(box.x+82,box.y+12,{steps:5});await page.mouse.up();
+  if(!await page.evaluate(()=>{const r=window.CWVideoStudio.get().doc.cues[0],t=window.CWCaptionTiming;return t.get(r,'original').start>0&&t.get(r,'translation').start===r.start;})){await page.screenshot({path:'reports/video-caption-drag-failure.png'});throw Error('Caption drag did not independently move original time: '+JSON.stringify({box,hit}));}
   await page.locator('#save').click();await page.locator('#dirty').filter({hasText:'已保存'}).waitFor();
   await page.setViewportSize({width:390,height:844});await page.waitForTimeout(100);
   if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2))throw Error('Mobile overflow');

@@ -59,7 +59,7 @@ function geometry(){const total=duration();if(zoomMode==='auto')zoom=Math.max(1,
 function location(clientX){const g=drag?.geometry||geometry();return Math.max(0,Math.min(g.duration,(clientX-viewport.getBoundingClientRect().left+viewport.scrollLeft)/g.width*g.duration));}
 function position(el,start,end,g){el.style.left=(start/g.duration*100)+'%';el.style.width=Math.max(.1,(end-start)/g.duration*100)+'%';}
 function renderTimeline(){
- const s=ui.get();if(!s.doc||drag||closed)return;const g=geometry(),shift=num(s.doc.subtitleShift);canvas.style.width=g.width+'px';
+ const s=ui.get();if(!s.doc||drag||closed)return;const g=geometry(),shift=num(s.doc.subtitleShift);canvas.style.width=g.width+'px';canvas.dataset.duration=g.duration;
  syncZoomControls();
  const tick=[.5,1,2,5,10,15,30,60,120,300,600].find(t=>t/g.duration*g.width>=65)||600;
  let ruler='';for(let t=0;t<=g.duration;t+=tick)ruler+=`<span style="left:${t/g.duration*100}%">${ui.fmt(t).slice(0,tick<1?-2:-4)}</span>`;

@@ -10,6 +10,7 @@ import video_project, video_jobs, video_workflow, video_captions, video_links
 import project_assets, separation, separation_jobs, workspaces
 import sv_starter
 import video_edit
+import video_preview
 live.prepare_manifest()
 
 PORT=int(os.environ.get("COVERWORKBENCH_PORT", "8765"))
@@ -110,6 +111,7 @@ class Handler(BaseHTTPRequestHandler):
             if parts[:2]==['api','video-check'] and len(parts)==3:return self.respond(video_workflow.checks(video_project.load(parts[2]),video_jobs.history(parts[2])))
             if parts[:2]==['api','video-job'] and len(parts)==3:return self.respond(video_jobs.job(parts[2]))
             if parts[0]=='video-source' and len(parts)==3:return self.file(video_jobs.source(parts[1],parts[2]))
+            if parts[0]=='video-preview' and len(parts)==3:return self.file(video_preview.media(parts[1],parts[2]))
             if parts[0]=='video-output' and len(parts)==4:return self.file(video_jobs.media(parts[1],parts[2],parts[3]),not parts[3].startswith('preview.'))
             if parts[0]=='video-caption' and len(parts)==2:return self.file(video_captions.media(parts[1]))
             if path=='/api/settings':return self.respond(settings.status())
@@ -180,6 +182,7 @@ class Handler(BaseHTTPRequestHandler):
             if action=='video-media-import':return self.respond(video_edit.import_media(pid,body),201)
             if action=='video-media-proxy':return self.respond(video_edit.proxy(pid,body))
             if action=='video-media-info':return self.respond(video_edit.inspect(video_project.local(body.get('path'),video_edit.EXTENSIONS)))
+            if action=='video-preview':return self.respond(video_preview.prepare(pid,body))
             if action=='video-save':return self.respond(video_project.save(pid,body))
             if action=='video-check':
                 current=video_project.load(pid)
