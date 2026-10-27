@@ -18,7 +18,7 @@ function paint(){
  $('#workspaceFolders').innerHTML=managed?folders.map(([label,folder])=>`<span><b>${label}</b><code>${folder}/</code></span>`).join(''):'';
 }
 async function refreshWorkspace(){const id=current(),token=++serial;workspace=null;paint();if(!id)return;try{const data=await api('/api/workspace/'+id);if(token!==serial||id!==current()||exited)return;workspace=data;paint();}catch(e){$('#workspaceSummary').textContent=e.message;}}
-$('#workspacePrepare').onclick=async()=>{const id=current();if(!id)return;const name=prompt('统一项目目录名称（英文，可含空格）',workspace?.suggested||'New Song');if(name===null)return;try{await api('/api/workspace/'+id,{name});await refreshWorkspace();window.dispatchEvent(new Event('cw-project-workspace-change'));toast('已建立统一目录；已有工程和视频编辑保留原样');}catch(e){toast(e.message);}};
+$('#workspacePrepare').onclick=async()=>{const id=current();if(!id)return;const name=prompt('统一项目目录名称（支持中文、日语和空格）',workspace?.suggested||'New Song');if(name===null)return;try{await api('/api/workspace/'+id,{name});await refreshWorkspace();window.dispatchEvent(new Event('cw-project-workspace-change'));toast('已建立统一目录；已有工程和视频编辑保留原样');}catch(e){toast(e.message);}};
 $('#workspaceOpen').onclick=()=>workspace&&openDawLocal(workspace.root,'folder');$('#workspaceCopy').onclick=()=>workspace&&copy(workspace.root);
 function ready(){const mode=$('#separationMode').value,models=capabilities?.models;return capabilities?.available&&(mode==='pipeline'?models.song?.available&&models.harmony?.available:models?.[mode]?.available);}
 function updateStart(busy=jobBusy){jobBusy=busy;$('#separationStart').disabled=!current()||!ready()||busy||preparingInput;}

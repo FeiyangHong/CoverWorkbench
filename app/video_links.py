@@ -153,7 +153,8 @@ def overview(ident, override=None):
                           'cueCount': len(d['cues']), 'audioOffset': d['audioOffset']}
             except (OSError, ValueError, KeyError):
                 pass
-        title = re.sub(r'[^A-Za-z0-9 _.-]+', ' ', source['music']['title']).strip(' ._-') or ident
+        from windows_names import generated
+        title = re.sub(r'[<>:"/\\|?*\x00-\x1f]+', ' ', source['music']['title']).strip(' .') or 'New'
         names = {p['id']: p['title'] for p in registry()}
         videos = []
         for item in video.listing():
@@ -162,7 +163,7 @@ def overview(ident, override=None):
         changed = {'audio': bool(link and 'audioSignature' in link and link['audioSignature'] != (source['audio']['signature'] if source['audio'] else None)),
                    'captions': bool(link and 'captionSignature' in link and link['captionSignature'] != source['captions']['signature'])}
         return {**public_materials(source), 'linked': target, 'linkedId': link['videoId'] if link else None, 'missingLink': bool(link and not target),
-                'videos': videos, 'changed': changed, 'defaultName': title[:54] + ' Video',
+                'videos': videos, 'changed': changed, 'defaultName': generated(title, ' Video'),
                 'captionCompatible': bool(target and source['audio'] and target['audio'] and Path(target['audio']).resolve() == Path(source['audio']['path']).resolve())}
 
 

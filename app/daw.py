@@ -8,6 +8,7 @@ import copy, hashlib, html, json, math, os, re, shutil, struct, subprocess, thre
 import xml.etree.ElementTree as ET
 from urllib.parse import unquote, urlsplit
 from core import ROOT, read_json, save_json, sha, parse_svp, seconds_converter, BLICK
+from windows_names import component
 
 BASE=ROOT/'projects/studio-one'
 import settings
@@ -42,7 +43,7 @@ def xmlbytes(node):return ('<?xml version="1.0" encoding="UTF-8"?>\n'+ET.tostrin
 def uid():return '{'+str(uuid.uuid4()).upper()+'}'
 def child(node,tag,key):return node.find(f'./{tag}[@x_id="{key}"]')
 def external(url):return Path(unquote(urlsplit(url).path).lstrip('/'))
-def fileurl(path):return 'file:///'+Path(path).as_posix()
+def fileurl(path):return Path(path).as_uri()
 
 def clean_path(value):
     text=str(value or '').strip()
@@ -319,8 +320,7 @@ def _build(body):
     # Only constant-tempo/meter songs have been verified against Studio One's time map format.
     if len(original.get('time',{}).get('tempo',[]))>1 or len(original.get('time',{}).get('meter',[]))>1:
         raise ValueError('当前自动建工程仅验证了恒定速度与拍号；变速 / 变拍工程请先单独处理速度图，避免错位')
-    slug=str(body.get('name','')).strip()
-    if not re.fullmatch(r'[A-Za-z][A-Za-z0-9 _-]{0,63}',slug):raise ValueError('工程名称使用 1–64 位英文字母、数字、空格、下划线或连字符，以字母开头')
+    slug=component(body.get('name',''), '工程名称', suffix='.song')
     supplied=body.get('tracks',[])
     if not isinstance(supplied,list) or not 1<=len(supplied)<=16:raise ValueError('选择 1–16 条人声音轨')
     tracks={r['index']:r for r in preview['tracks']};selected=[];seen=set()
@@ -339,11 +339,11 @@ def _build(body):
     stamp=slug+'_'+time.strftime('%Y%m%d_%H%M%S')+'_'+uuid.uuid4().hex[:6]
     folder_name=slug if naming=='plain' else stamp.rsplit('_',1)[0] if naming=='timestamp' else stamp
     base=workspaces.outputs(music_project)/'studio-one' if music_project and body.get('useProjectDirectory') is True else output_base(body.get('outputDir'))
-    dest=base/folder_name
+    dest=base/component(folder_name, '项目目录名')
     if conflict_action=='version':
         version=2
         while True:
-            dest=base/(slug+f'_v{version}')
+            dest=base/component(slug+f'_v{version}', '项目目录名')
             try:dest.mkdir(parents=True,exist_ok=False);break
             except FileExistsError:version+=1
     else:
@@ -444,7 +444,7 @@ def _build(body):
                     if v==oldid:n.set(k,host['classID'])
                     if v=='Synthesizer V Studio Plugin':n.set(k,'Synthesizer V Studio 2 Plugin')
     archive.update({name:xmlbytes(node) for name,node in docs.items()})
-    # All generated physical directories and archive directory segments use ASCII.
+    # Keep internal archive segments stable; user-facing project names retain Unicode.
     renames={};newarchive={}
     for name,value in archive.items():
         if name.startswith('Envelopes/'):continue

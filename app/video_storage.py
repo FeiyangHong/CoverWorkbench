@@ -3,6 +3,7 @@ from pathlib import Path
 import re
 
 from core import read_json
+from windows_names import generated
 
 PREFIXES = {'export': 'Export', 'preview': 'Preview', 'analyze': 'Analysis', 'download': 'Download'}
 
@@ -27,7 +28,7 @@ def output_name(job, extension):
     if not job.get('version'):
         return ('preview.' if job['kind'] == 'preview' else 'video.') + extension
     label = f"v{job['version']:03}" if job['kind'] == 'export' else f"Preview {job['version']:03}"
-    return f"{job['project']} - {label}.{extension}"
+    return generated(job['project'], f' - {label}.{extension}')
 
 
 def locate(project_folder, ident):

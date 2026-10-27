@@ -128,7 +128,7 @@ def main():
         save_json(source_path, {'project': project})
         (root / 'runtime/workflow/done.json').unlink()
         source = links.overview('song')
-        assert source['audio'] is None and source['defaultName'] == 'song Video'
+        assert source['audio'] is None and source['defaultName'] == '星 Video'
         empty = links.perform('song', dict(action='create', sourceSignature=source['signature']))
         assert set(empty['missing']) == {'混音', '字幕'}
         assert not video.load(empty['videoId'])['audio']

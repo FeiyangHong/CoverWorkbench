@@ -34,8 +34,8 @@ def create(body):
     if not title:
         raise ValueError('请填写歌曲名称，或选择原歌曲 / SVP')
     artist = str(body.get('artist', '')).strip()
-    if len(title) > 150 or len(artist) > 150:
-        raise ValueError('Title / artist is too long')
+    if len(artist) > 150:
+        raise ValueError('Artist is too long')
     # Validate all external files before creating the destination.
     media = []
     if audio_source:

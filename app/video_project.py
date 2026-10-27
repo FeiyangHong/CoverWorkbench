@@ -12,6 +12,7 @@ import uuid
 
 from core import ROOT, read_json, save_json, sha, parse_svp, read_srt, srt_text
 from daw import clean_path, local
+from windows_names import component
 
 BASE = ROOT / 'projects/video'
 LOCK = threading.RLock()
@@ -42,8 +43,7 @@ def stamp(value):
 
 
 def folder(ident):
-    if not isinstance(ident, str) or not re.fullmatch(r'[A-Za-z0-9 _.-]{1,90}', ident) or ident in {'.', '..'}:
-        raise ValueError('无效的视频工程编号')
+    component(ident, '视频工程名')
     mapping = read_json(BASE / '.folders.json') if (BASE / '.folders.json').exists() else {}
     p = Path(mapping.get(ident, BASE / ident)).resolve()
     if p.name != ident or not (p / 'project.json').is_file():
@@ -165,9 +165,7 @@ def warnings(doc, duration=None):
 
 
 def create(body, internal=None, directory=None):
-    name = str(body.get('name', 'New Video')).strip()
-    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}', name) or name.endswith(('.', ' ')) or name.split('.')[0].upper() in {'CON','PRN','AUX','NUL',*[f'COM{i}' for i in range(1,10)],*[f'LPT{i}' for i in range(1,10)]}:
-        raise ValueError('工程名请使用英文、数字、空格、下划线或连字符')
+    name = component(body.get('name', 'New Video'), '视频工程名')
     doc = dict(name=name, video='', audio='', audioOffset=0, subtitleShift=0, gainDb=0, targetLufs=-14,
                audioMode='gain', resolution='source', fps='source', format='mp4', crf=18, burn=True,
                styles={'original': dict(STYLE), 'translation': {**STYLE, 'size':44, 'y':1026}}, cues=[], provenance=[])
@@ -183,7 +181,7 @@ def create(body, internal=None, directory=None):
         known = {p['id'] for p in listing()}
         dest = parent / name
         version = 2
-        while dest.exists() or dest.name in known: dest = parent / f'{name}_v{version}'; version += 1
+        while dest.exists() or dest.name in known: dest = parent / component(name + f'_v{version}', '视频工程名'); version += 1
         dest.mkdir()
         for child in ['Sources', 'History', 'Jobs', 'Exports']: (dest / child).mkdir()
         doc.update(id=dest.name, revision=1, updated=datetime.now().isoformat(timespec='seconds'))

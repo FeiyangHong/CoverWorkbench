@@ -62,7 +62,7 @@ def main():
                     preview = daw.inspect({'svp': str(source)})
                     result = daw.build({'svp': str(source), 'engine': 'sv1', 'sourceSHA256': source_hash,
                         'tracks': [{'index': track['index'], 'role': track['role']} for track in preview['tracks']],
-                        'name': row['id'] + '-' + str(len(names)), 'template': row['id'],
+                        'name': '合成歌手 - テスト曲 #1 100% ' + row['id'] if len(names) == 1 else row['id'] + '-' + str(len(names)), 'template': row['id'],
                         'accompaniment': str(audio), 'outputDir': str(folder / 'builds')})
                     assert len(result['mapping']) == len(names)
                     assert daw.sha(source) == source_hash

@@ -35,7 +35,7 @@ def main():
         doc=project.create({'name':'My Cover Video'})
         assert doc['id']=='My Cover Video'
         assert project.create({'name':'My Cover Video'})['id']=='My Cover Video_v2'
-        for name in ['../escape','CON','中文','bad:name']:
+        for name in ['../escape','CON','bad:name','trailing.','trailing ']:
             try:project.create({'name':name})
             except ValueError:pass
             else:raise AssertionError('Unsafe project name accepted')

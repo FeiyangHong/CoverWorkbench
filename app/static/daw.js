@@ -11,7 +11,7 @@ async function loadDaw(){
  $('#dawRecipe').textContent=state.templates.length?'':'此设备还没有混音模板。请打开环境设置，注册自己的 Studio One Song。';
  renderDawTemplate();
  initDawOutput();setDawProjectOutput();
- if(bundle&&dawPresetProject!==pid){const id=pid;const data=await api('/api/project-assets/'+id);if(id===pid){$('#dawSVP').value=data.assets.svp.path;$('#dawAccompaniment').value=data.assets.accompaniment.path;const ws=window.CWProjectWorkspace?.();$('#dawName').value=/^[A-Za-z][A-Za-z0-9 _-]{0,63}$/.test(bundle.project.title)?bundle.project.title:ws?.suggested||'New Song';dawMusicId=id;dawPresetProject=id;invalidateDaw();setDawProjectOutput();}}
+ if(bundle&&dawPresetProject!==pid){const id=pid;const data=await api('/api/project-assets/'+id);if(id===pid){$('#dawSVP').value=data.assets.svp.path;$('#dawAccompaniment').value=data.assets.accompaniment.path;const ws=window.CWProjectWorkspace?.();$('#dawName').value=bundle.project.title||ws?.suggested||'New Song';dawMusicId=id;dawPresetProject=id;invalidateDaw();setDawProjectOutput();}}
  updateDawOutput();
 }
 function renderDawTemplate(){

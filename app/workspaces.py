@@ -4,6 +4,7 @@ import re
 import threading
 
 from core import ROOT, read_json, save_json
+from windows_names import component
 
 LOCK = threading.RLock()
 DIRECTORIES = ['source', 'separation', 'working/sv', 'working/sv2', 'working/lyrics',
@@ -17,12 +18,7 @@ def registry():
 
 
 def name(value):
-    value = str(value).strip()
-    if (not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9 _.-]{0,79}', value)
-            or value.endswith(('.', ' ')) or value.split('.')[0].upper() in
-            {'CON', 'PRN', 'AUX', 'NUL', *[f'COM{i}' for i in range(1, 10)], *[f'LPT{i}' for i in range(1, 10)]}):
-        raise ValueError('目录名请使用英文、数字、空格、连字符或下划线（最多 80 字符）')
-    return value
+    return component(value, '项目目录名')
 
 
 def suggested(p):
@@ -51,7 +47,7 @@ def proposed(p):
     base, label, number = ROOT / 'projects', suggested(p), 2
     dest = base / label
     while dest.exists():
-        dest = base / f'{label}_v{number}'
+        dest = base / component(label + f'_v{number}', '项目目录名')
         number += 1
     return dest
 
@@ -71,7 +67,7 @@ def allocate(p, folder_name=None):
                 dest.mkdir()
                 break
             except FileExistsError:
-                dest = base / f'{label}_v{number}'
+                dest = base / component(label + f'_v{number}', '项目目录名')
                 number += 1
         for directory in DIRECTORIES:
             (dest / directory).mkdir(parents=True, exist_ok=True)
