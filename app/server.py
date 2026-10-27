@@ -179,6 +179,7 @@ class Handler(BaseHTTPRequestHandler):
             if action=='video-caption':return self.respond(video_captions.render(body))
             if action=='video-create':return self.respond(video_project.create(body),201)
             if action=='video-edit-copy':return self.respond(video_edit.edit_copy(pid,body),201)
+            if action=='video-edit-enable':return self.respond(video_edit.enable(pid,body))
             if action=='video-media-import':return self.respond(video_edit.import_media(pid,body),201)
             if action=='video-media-proxy':return self.respond(video_edit.proxy(pid,body))
             if action=='video-media-info':return self.respond(video_edit.inspect(video_project.local(body.get('path'),video_edit.EXTENSIONS)))

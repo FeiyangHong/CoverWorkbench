@@ -8,17 +8,18 @@ const write=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value));}c
 const key=()=> 'cw-video-view:'+project;
 function section(id,title){const el=document.createElement('section');el.id=id;el.className='settings-panel';el.hidden=true;const h=document.createElement('h2');h.textContent=title;el.append(h);$('.inspector').append(el);return el;}
 const sound=section('sound','音乐、对齐与响度'),subtitles=section('subtitleSource','字幕来源'),picture=section('pictureSettings','画布与片段');
-const sources=$('#sources');$('#sources > h2').textContent='媒体文件与下载';const lines=$$('#sources > hr'),audio=$('#audio').closest('label');sound.append(audio);
+const sources=$('#sources');$('#sources > h2').textContent='参考视频与下载';$('#video').closest('label').firstChild.textContent='参考视频（对时 / 整段 MV）';const lines=$$('#sources > hr'),audio=$('#audio').closest('label');sound.append(audio);
 let el=lines[0].nextElementSibling;
 while(el&&el!==lines[1]){const next=el.nextElementSibling;sound.append(el);el=next;}
 el=lines[1].nextElementSibling;
 while(el){const next=el.nextElementSibling;subtitles.append(el);el=next;}
 lines.forEach(el=>el.remove());
 picture.append($('.edit-project-settings'),$('#editInspector'));
+const libraryPanel=section('library','项目媒体库');libraryPanel.append($('#editLibrary'));
 $('#editLibrary > hr')?.remove();
 const download=$('#url').closest('details');download.id='videoDownload';download.open=true;
 $('#layout > h2').textContent='字幕样式';$('#output > h2').textContent='导出设置';
-$('.inspector-tabs').innerHTML=[['sources','媒体'],['sound','声音'],['subtitleSource','字幕'],['pictureSettings','片段'],['layout','样式'],['output','导出']].map(([id,label])=>`<button type="button" data-panel="${id}" role="tab" aria-controls="${id}">${label}</button>`).join('');
+$('.inspector-tabs').innerHTML=[['library','媒体库'],['sources','参考/下载'],['sound','声音'],['subtitleSource','字幕'],['pictureSettings','片段'],['layout','样式'],['output','导出']].map(([id,label])=>`<button type="button" data-panel="${id}" role="tab" aria-controls="${id}">${label}</button>`).join('');
 function panel(name,target=null){
  if(target){const element=$(target);name=element?.closest('.settings-panel')?.id||name;}
  if(name==='pictureSettings'&&!ui.peek().doc?.composition)name='sources';
@@ -59,7 +60,7 @@ $('#videoProjectSelect').onchange=e=>{$('#projects').value=e.target.value;$('#pr
 function catalog(){$('#videoProjectSelect').innerHTML=$('#projects').innerHTML;$('#videoProjectSelect').value=ui.peek().doc?.id||'';}
 function opened(){
  const doc=ui.peek().doc;if(!doc)return;document.body.classList.add('has-document');
- if(project!==doc.id){project=doc.id;const pref=read(key())||{};table=pref.table!==false;size(pref.height||280);focus(['picture','captions','overview'].includes(pref.mode)?pref.mode:doc.composition?'picture':'captions');panel('sources');workflow.open=false;}
+ if(project!==doc.id){project=doc.id;const pref=read(key())||{};table=pref.table!==false;size(pref.height||280);focus(['picture','captions','overview'].includes(pref.mode)?pref.mode:doc.composition?'picture':'captions');panel('library');workflow.open=false;}
  $('[data-editor-focus="picture"]').hidden=!doc.composition;$('[data-panel="pictureSettings"]').hidden=!doc.composition;catalog();
 }
 // Route contextual actions to their actual panel, including hidden source fields.
@@ -67,7 +68,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-guide-acti
  if(action==='table'){focus('captions');table=true;focus(mode);}
  if(['audio','analyze','listen-mix'].includes(action))panel('sound');
  if(action==='captions')panel('subtitleSource');
- if(['video','download','library'].includes(action))panel('sources');
+ if(['video','download'].includes(action))panel('sources');if(action==='library')panel('library');
 },true);
 $('#editCanvas').addEventListener('dblclick',e=>{if(e.target.closest('[data-picture]'))panel('pictureSettings');},true);
 window.addEventListener('cw-video-change',e=>{if(['document','open'].includes(e.detail.type))opened();if(e.detail.type==='catalog')catalog();});

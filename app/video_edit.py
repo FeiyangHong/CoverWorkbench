@@ -254,6 +254,36 @@ def edit_copy(ident, body):
     return target
 
 
+def enable(ident, body):
+    """Explicitly enable editing on the same project, preserving its independent clocks."""
+    original = project.load(ident)
+    if original['revision'] != body.get('revision'):
+        raise ValueError('工程已更新，请重新读取后再启用剪辑')
+    if original.get('composition'):
+        return {'project': original, 'warnings': []}
+    fps, assets, clips, lengths, warnings = 25, [], [], [.1], []
+    if original.get('video'):
+        item = import_media(ident, {'path': original['video']})
+        lengths.append(item['duration'])
+        if item['kind'] == 'video':
+            if body.get('autoProxy', True) and (Path(item['path']).suffix.lower() in ('.mkv', '.avi') or item.get('videoCodec', 'h264') not in ('h264', 'vp8', 'vp9', 'av1')):
+                try: item = proxy(ident, {'asset': item['id']})
+                except (ValueError, OSError, subprocess.SubprocessError):
+                    warnings.append('原视频已保留；网页代理未就绪，可在媒体库重试生成')
+            assets.append(item)
+            clips.append({'id': 'Clip1', 'asset': item['id'], 'start': 0, 'in': 0,
+                          'duration': max(1/fps, math.floor(item['duration']*fps)/fps), 'fit': 'contain', 'x': 0, 'y': 0})
+    if original.get('audio'):
+        lengths.append(inspect(original['audio'])['duration'] + original['audioOffset'])
+    lengths += [project.caption_times(row, language)['end'] + original['subtitleShift']
+                for row in original.get('cues', []) for language in ('original', 'translation')]
+    composition = {'version': 1, 'duration': math.ceil(max(lengths)*fps)/fps if len(lengths)>1 else 30,
+                   'fps': fps, 'width': 1920, 'height': 1080, 'allowGaps': False, 'assets': assets, 'clips': clips}
+    # save() keeps the previous document in History and checks the revision again after media work.
+    result = project.save(ident, {**original, 'composition': composition})
+    return {'project': result, 'warnings': warnings}
+
+
 def picture_segments(comp, first, last):
     """One frame grid for cuts, transition envelopes and preview slices."""
     fps = comp['fps']; effects = transitions(comp)
