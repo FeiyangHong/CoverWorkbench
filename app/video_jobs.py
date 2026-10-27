@@ -20,6 +20,7 @@ import lifecycle
 import video_project as project
 import video_workflow
 import video_storage
+import media_names
 from core import read_json, save_json, sha
 
 LOCK = threading.RLock()
@@ -85,7 +86,7 @@ def history(ident):
     rows=[]
     with LOCK:
         live={Path(j['folder']).resolve():public(j) for j in JOBS.values() if j.get('project')==ident}
-    for p in [p for dest in locations for section in ['Jobs','Exports'] for p in (dest/section).glob('*/job.json')]:
+    for p in [p for dest in locations for section in ['Jobs','Tasks','Exports'] for p in (dest/section).glob('*/job.json')]:
         try:
             # Poll live jobs in memory instead of opening the file being replaced.
             active=p.parent.resolve() in live
@@ -146,6 +147,7 @@ def submit(ident, body):
             save_json(folder/'snapshot.json',doc)
             j=dict(id=jid,project=ident,kind=kind,status='queued',progress=0,stage='等待处理',message='',renderSignature=video_workflow.signature(doc),mediaSignature=video_workflow.media_signature(doc),
                    created=time.time(),folder=str(folder),version=version,spec=spec,files=[],snapshot=doc,cancel=threading.Event())
+            if kind=='download':j['outputRoot']=str(folder.parent.parent)
             if kind in ['export','preview']:
                 j['outputName']=video_storage.output_name(j,'mp4' if kind=='preview' else doc['format'])
             update(j)
@@ -362,16 +364,71 @@ def render(j):
 
 def download(j):
     folder=Path(j['folder']); spec=j['spec']
+    root=Path(j.get('outputRoot') or project.output_folder(j['project'])).resolve()
+    if not re.fullmatch(r'[0-9a-f]{32}',j['id']):raise ValueError('无效下载任务编号')
+    staging=root/'Cache/Downloads'/j['id']
+    if not staging.resolve().is_relative_to(root):raise ValueError('下载缓存目录指向工程外部')
+    staging.mkdir(parents=True,exist_ok=True)
     command_start=[shutil.which('yt-dlp')] if shutil.which('yt-dlp') else [sys.executable,'-m','yt_dlp']
     args=command_start+['--ignore-config','--no-playlist','--no-overwrites','--no-mtime','--newline','--write-info-json',
           '--socket-timeout','20','--retries','2','--ffmpeg-location',str(Path(settings.executable('ffmpeg')).parent),
           '-f',f"bv*[height<={spec['height']}]+ba/b[height<={spec['height']}]",'--merge-output-format','mkv',
-          '-o',str(folder/'source.%(ext)s'),'--',spec['url']]
+          '-o',str(staging/'source.%(ext)s'),'--',spec['url']]
     command(j,args,stage='yt-dlp 下载视频（耗时取决于网络）',timeout=1800)
-    media=[p for p in folder.glob('source.*') if p.suffix in ['.mkv','.mp4','.webm']]
+    media=[p for p in staging.glob('source.*') if p.suffix in ['.mkv','.mp4','.webm'] and p.is_file()]
     if len(media)!=1: raise ValueError('下载未生成唯一视频，请查看本机日志')
-    info=probe(j,media[0]);save_json(folder/'provenance.json',{'url':spec['url'],'sha256':sha(media[0]),'metadata':info})
-    update(j,files=[media[0].name,'provenance.json'],result={'path':str(media[0]),'note':'下载完成。点击使用此视频后才会更新当前工程。'})
+    if not (staging/'source.info.json').is_file():raise ValueError('下载缺少网站标题信息，请查看下载记录')
+    details=read_json(staging/'source.info.json')
+    if not isinstance(details,dict):raise ValueError('下载标题信息格式无效，请查看下载记录')
+    title=details.get('title')
+    # Validate the provider's title as data, never interpolate it into a shell command.
+    media_names.filename(title,media[0].suffix)
+    info=probe(j,media[0])
+    if not any(s.get('codec_type')=='video' for s in info['streams']):raise ValueError('下载结果没有视频画面')
+    save_json(folder/'info.json',details)
+    target,reused=publish_download(j,media[0],root/'Media/Video',title)
+    digest=sha(target)
+    save_json(folder/'provenance.json',{'url':spec['url'],'title':title,'path':str(target),'sha256':digest,'metadata':info})
+    update(j,files=['info.json','provenance.json'],result={'path':str(target),'name':target.name,'title':title,
+           'mediaFolder':str(target.parent),'sha256':digest,'reused':reused,
+           'note':'下载完成。视频保存在 Media/Video；点击使用此视频后才会更新当前工程。'})
+    # Only remove this job's known transient files; never recursively delete a user directory.
+    if staging.resolve().parent==(root/'Cache/Downloads').resolve():
+        for temp in staging.glob('source.*'):
+            try:
+                if temp.is_file():temp.unlink()
+            except OSError:pass
+        try:staging.rmdir()
+        except OSError:pass
+
+
+def publish_download(j,source,directory,title):
+    """Exclusive creation prevents concurrent downloads from overwriting user media."""
+    root=Path(j.get('outputRoot') or project.output_folder(j['project'])).resolve()
+    directory=directory.resolve()
+    if not directory.is_relative_to(root):raise ValueError('素材目录指向工程外部')
+    directory.mkdir(parents=True,exist_ok=True)
+    digest=sha(source);version=1
+    while True:
+        check(j)
+        target=directory/media_names.filename(title,source.suffix,version)
+        try:
+            stream=target.open('xb')
+        except FileExistsError:
+            try:
+                if target.resolve().is_relative_to(directory) and target.is_file() and sha(target)==digest:return target,True
+            except OSError:pass
+            version+=1;continue
+        try:
+            with stream,source.open('rb') as original:
+                while block:=original.read(1024*1024):
+                    check(j);stream.write(block)
+            check(j)
+            if sha(target)!=digest or sha(source)!=digest:raise ValueError('视频在归档期间发生变化，请重新下载')
+            return target,False
+        except BaseException:
+            target.unlink(missing_ok=True)
+            raise
 
 
 def run(j):

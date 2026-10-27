@@ -12,6 +12,7 @@ import uuid
 from core import read_json, save_json, sha
 import settings
 import video_project as project
+import media_names
 
 LOCK = threading.RLock()
 EXTENSIONS = project.MEDIA | {'.png', '.jpg', '.jpeg', '.webp'}
@@ -52,21 +53,29 @@ def import_media(ident, body):
     source = project.local(body.get('path'), EXTENSIONS)
     before = sha(source)
     with LOCK:
-        existing = next((a for a in library(ident) if a['sha256'] == before), None)
-        if existing and Path(existing['path']).is_file():
+        owned=any(source.is_relative_to((base/'Media').resolve()) for base in project.output_locations(ident))
+        # An already-owned titled file gets its own library entry; keep older aliases/clips intact.
+        existing = next((a for a in library(ident) if a['sha256'] == before and Path(a['path']).is_file()
+                         and (not owned or Path(a['path']).resolve()==source)), None)
+        if existing:
             return existing
         metadata = inspect(source)
         root = project.folder(ident) / 'Media' / {'video': 'Video', 'image': 'Images', 'audio': 'Audio'}[metadata['kind']]
         root.mkdir(parents=True, exist_ok=True)
-        label = re.sub(r'[^A-Za-z0-9 _.-]', '', source.stem).strip(' .')[:70] or metadata['kind'].title()
-        if label.split('.')[0].upper() in {'CON', 'PRN', 'AUX', 'NUL', *[f'COM{i}' for i in range(1, 10)], *[f'LPT{i}' for i in range(1, 10)]}:
-            label = 'Media ' + label
-        dest = root / (label + source.suffix.lower())
-        number = 2
-        while dest.exists():
-            dest = root / (label + f' v{number}' + source.suffix.lower()); number += 1
-        shutil.copy2(source, dest)
+        dest=source
+        if not owned:
+            number=1
+            while True:
+                dest=root/media_names.filename(source.stem,source.suffix,number)
+                try:stream=dest.open('xb')
+                except FileExistsError:number+=1;continue
+                try:
+                    with stream,source.open('rb') as original:shutil.copyfileobj(original,stream)
+                    break
+                except BaseException:
+                    dest.unlink(missing_ok=True);raise
         if sha(dest) != before or sha(source) != before:
+            if not owned:dest.unlink(missing_ok=True)
             raise ValueError('素材在复制期间发生改变，请保存后重新导入')
         item = {'id': uuid.uuid4().hex, 'name': source.name, 'path': str(dest), 'source': str(source),
                 'sha256': before, **metadata}

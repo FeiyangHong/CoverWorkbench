@@ -35,6 +35,7 @@ jobs:
           python tests/video-preview.py
           python tests/video-transitions.py
           python tests/video-storage.py
+          python tests/video-downloads.py
           python tests/video-captions.py
           python tests/video-lanes.py
           node tests/video-history.cjs

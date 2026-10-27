@@ -10,7 +10,7 @@ PREFIXES = {'export': 'Export', 'preview': 'Preview', 'analyze': 'Analysis', 'do
 
 def reserve(project_folder, kind, minimum=1):
     prefix = PREFIXES[kind]
-    parent = Path(project_folder) / ('Exports' if kind == 'export' else 'Jobs')
+    parent = Path(project_folder) / ('Exports' if kind == 'export' else 'Tasks' if kind == 'download' else 'Jobs')
     parent.mkdir(exist_ok=True)
     numbers = [int(match[1]) for child in parent.iterdir()
                if (match := re.fullmatch(re.escape(prefix) + r' (\d+)', child.name))]
@@ -34,7 +34,7 @@ def output_name(job, extension):
 def locate(project_folder, ident):
     if not re.fullmatch(r'[0-9a-f]{32}', ident):
         raise ValueError('无效任务编号')
-    for section in ('Exports', 'Jobs'):
+    for section in ('Exports', 'Tasks', 'Jobs'):
         parent = Path(project_folder) / section
         legacy = parent / ident
         candidates = [legacy] + [p for p in parent.iterdir() if p != legacy] if parent.exists() else []

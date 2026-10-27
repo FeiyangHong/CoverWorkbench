@@ -22,7 +22,9 @@ def main():
         assert sorted(n for _, n in allocated) == list(range(1, 13))
         assert {p.name for p, _ in allocated} == {f'Export {i:03}' for i in range(1, 13)}
         for kind, prefix in [('preview', 'Preview'), ('analyze', 'Analysis'), ('download', 'Download')]:
-            assert storage.reserve(parent, kind)[0].name == prefix + ' 001'
+            location=storage.reserve(parent, kind)[0]
+            assert location.name == prefix + ' 001'
+            assert location.parent.name == ('Tasks' if kind=='download' else 'Jobs')
         (parent / 'Exports/Export 013').write_text('An existing file must not be overwritten')
         assert storage.reserve(parent, 'export')[1] == 14
         jid = 'a' * 32
