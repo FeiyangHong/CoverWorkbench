@@ -44,6 +44,7 @@ jobs:
           node tests/picture-edits.cjs
           python tests/video-workflow.py
           python tests/video-links.py
+          python tests/mix-sources.py
           python tests/production.py
           python tests/asset-storage.py
           python tests/windows-names.py

@@ -82,7 +82,7 @@ def delivery(j):
     update(j,progress=55,message='整理音频、歌词与字幕')
     audio=out/f'{prefix}_master{source.suffix.lower()}'; shutil.copy2(source,audio)
     if sha(audio)!=h: raise ValueError('交付音频校验失败')
-    add_file(j,audio,'原样混音音频')
+    add_file(j,audio,'原样混音音频');update(j,masterAudio=str(audio))
     if cues:
         sub=out/f'{prefix}_bilingual.srt';sub.write_text(srt_text(cues,'bilingual'),encoding='utf-8-sig');add_file(j,sub,'双语字幕（待人工确认）')
     package=j['snapshot'].get('lyrics') or {}; rows=package.get('rows',[])
@@ -147,7 +147,9 @@ def enqueue(pid, body, watcher=False):
 def _enqueue(pid, body, watcher=False):
     p=project(pid); kind=body.get('kind')
     if kind not in ['delivery','video']:raise ValueError('Unknown task')
-    default=p['audio'].get('mix',{}).get('original','')
+    import mix_sources
+    choice=mix_sources.preferred(mix_sources.collect(p,ROOT))
+    default=choice['path'] if choice else ''
     audio=local_media(body.get('audio') or default,{'.wav','.flac','.mp3','.m4a','.aiff','.aif'})
     data={'audio':str(audio)}
     if kind=='video':
@@ -174,6 +176,8 @@ def public(j):return copy.deepcopy({k:v for k,v in j.items() if k!='snapshot'})
 def status(pid):
     from workspaces import root
     p=project(pid)
+    import mix_sources
+    discovery=mix_sources.collect(p,ROOT)
     with GUARD:
         for j in JOBS.values():
             if j['pid']==pid and j['kind']=='delivery' and j['status']=='completed' and not j.get('qc'):
@@ -185,7 +189,8 @@ def status(pid):
         return {'jobs':sorted(jobs,key=lambda j:j['createdAt'],reverse=True)[:40],
                 'watcher':copy.deepcopy(WATCH.get(pid,{'enabled':False})),
                 'renderFolder':str(root(p)/'exports/audio'),
-                'defaultAudio':p['audio'].get('mix',{}).get('original',''),
+                'defaultAudio':mix_sources.preferred(discovery)['path'] if mix_sources.preferred(discovery) else '',
+                'audioDiscovery':discovery,
                 'nativeScripts':['CW Phrase Lyrics','CW Phrase Reuse','CW Voice Presets'],
                 'presets': [{'id':f.stem.split('_',1)[1], 'svMajor':f.stem.split('_',1)[0]}
                             for f in sorted((ROOT/'data/sv-presets').glob('*.tsv'))],

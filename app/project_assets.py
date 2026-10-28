@@ -7,6 +7,7 @@ from core import ROOT, read_json, save_json
 import daw
 import workspaces
 import asset_storage
+import mix_sources
 
 STORE = ROOT / 'config/project-assets.local.json'
 LOCK = threading.RLock()
@@ -35,20 +36,14 @@ def defaults(p):
     paths = {key: p.get('audio', {}).get(key, {}).get('original', '') for key in AUDIO_KEYS}
     paths['svp'] = p.get('managedSVP') or next((f['original'] for f in p.get('files', []) if str(f.get('original', '')).lower().endswith('.svp')), p.get('working', ''))
     paths['song'] = p.get('dawCopy', {}).get('song', '')
-    # Match saved build references, never song titles or guesses about filenames.
-    builds = []
-    svp = str(Path(paths['svp']).resolve()) if paths['svp'] else ''
-    for file in (ROOT / 'projects/studio-one').glob('*/build.json'):
-        try:
-            b = read_json(file)
-            if svp and svp in {str(Path(b[k]).resolve()) for k in ('svp', 'sourceSVP') if b.get(k)}:
-                builds.append(b)
-        except (OSError, ValueError, KeyError):
-            continue
+    # Match source SVPs and the build index, including per-song/external output roots.
+    builds = mix_sources.builds(p,ROOT)
     if builds:
-        build = max(builds, key=lambda b: b.get('createdAt', 0))
+        build = builds[0]
         paths['song'] = paths['song'] or build.get('song', '')
         paths['accompaniment'] = paths.get('accompaniment') or build.get('sourceAudio', '')
+    candidate = mix_sources.preferred(mix_sources.collect(p,ROOT))
+    if candidate: paths['mix'] = candidate['path']
     return paths
 
 

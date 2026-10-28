@@ -6,6 +6,7 @@ import json
 import re
 import threading
 import time
+import mix_sources
 
 from core import ROOT, read_json, save_json
 import video_project as video
@@ -46,13 +47,7 @@ def persist(rows):
 
 
 def audio_info(path, label):
-    try:
-        p = video.local(path, AUDIO)
-        stat = p.stat()
-        return {'path': str(p), 'name': p.name, 'label': label,
-                'signature': digest([str(p), stat.st_size, stat.st_mtime_ns])}
-    except (OSError, ValueError, TypeError):
-        return None
+    return mix_sources.audio_info(path,label)
 
 
 def caption_rows(rows):
@@ -76,39 +71,19 @@ def caption_rows(rows):
 def materials(ident, override=None):
     p = music(ident)
     pilot = Path(p['pilot'])
-    candidates = []
-    assets = ROOT / 'config/project-assets.local.json'
-    registered_mix = read_json(assets).get('projects', {}).get(ident, {}).get('mix') if assets.exists() else None
-    item = audio_info(registered_mix, '项目素材中登记的成品混音') if registered_mix else None
-    if item:
-        candidates.append(item)
-    # Use explicit, completed delivery records, never filename guesses or separated vocals.
-    deliveries = []
-    for path in (ROOT / 'runtime/workflow').glob('*.json'):
-        try:
-            job = read_json(path)
-            if job.get('pid') == ident and job.get('kind') == 'delivery' and job.get('status') == 'completed':
-                deliveries.append(job)
-        except (OSError, ValueError):
-            continue
-    for job in sorted(deliveries, key=lambda j: j.get('createdAt', 0), reverse=True)[:10]:
-        item = audio_info(job.get('input', {}).get('audio'), '已完成交付的混音')
-        if item and not any(c['path'] == item['path'] for c in candidates):
-            candidates.append(item)
-    registered = p.get('audio', {}).get('mix', {}).get('original')
-    item = audio_info(registered, '音乐工程登记的成品混音') if registered else None
-    if item and not any(c['path'] == item['path'] for c in candidates):
-        candidates.append(item)
+    discovery = mix_sources.collect(p,ROOT)
+    candidates = discovery['candidates']
     selected = links().get(ident, {}).get('audioPath', '') if override is None else override
     chosen = None
     if selected:
         chosen = audio_info(selected, '本曲手动选择的混音')
+        if not chosen and override is None: discovery['warnings'].append('上次手动选择的混音已移动或不可用，请重新选择，或切回自动选取')
         if not chosen and override is not None:
             raise ValueError('所选混音不存在或格式不支持，请重新选择')
         if chosen and not any(c['path'] == chosen['path'] for c in candidates):
             candidates.insert(0, chosen)
     else:
-        chosen = candidates[0] if candidates else None
+        chosen = mix_sources.preferred(discovery)
     review = pilot / 'analysis/review.json'
     state = read_json(review) if review.exists() else {}
     raw = state.get('subtitles', [])
@@ -132,7 +107,7 @@ def materials(ident, override=None):
                 'signature': digest(cues) if cues else None}
     signature = digest([chosen['signature'] if chosen else None, subtitle['signature'], label, issue])
     return {'music': {'id': ident, 'title': p['title'], 'artist': p.get('artist', '')}, 'audio': chosen,
-            'audioCandidates': candidates, 'audioSelection': str(chosen['path']) if selected and chosen else str(selected or ''),
+            'audioCandidates': candidates, 'audioDiscovery': {k:v for k,v in discovery.items() if k!='candidates'}, 'audioSelection': str(chosen['path']) if selected and chosen else str(selected or ''),
             'captions': subtitle, 'signature': signature, '_cues': cues}
 
 
