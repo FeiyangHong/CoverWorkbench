@@ -8,6 +8,7 @@ from pathlib import Path
 
 import settings
 import video_project as project
+import video_audio
 
 FIELDS = {'video','audio','audioOffset','subtitleShift','gainDb','targetLufs','audioMode','resolution','fps','format','crf','burn','styles','cues','composition'}
 
@@ -39,7 +40,7 @@ def timing(doc,clock,source='confirmed'):
 def reconcile(current,doc):
     """Materialized video timestamps follow the audio by the delta, exactly once."""
     state=copy.deepcopy(current.get('timing',{}))
-    if doc.get('cues') and state.get('clock')=='audio':
+    if not video_audio.original(doc) and doc.get('cues') and state.get('clock')=='audio':
         # A music-linked document already has a known audio clock before its first MV.
         if state.get('source')=='music-project' and not current.get('video') and file_key(doc.get('video')) and state.get('audioKey')==file_key(doc.get('audio')):
             state['videoKey']=file_key(doc['video'])
@@ -59,14 +60,17 @@ def reconcile(current,doc):
 
 def signature(doc):
     fields = {k:doc.get(k) for k in FIELDS if k!='composition' or doc.get('composition')}
+    if video_audio.original(doc):
+        fields.pop('audio',None);fields.pop('audioOffset',None);fields.pop('gainDb',None);fields.pop('audioMode',None);fields.pop('targetLufs',None);fields['audioSource']='video'
     if doc.get('composition'):
         from video_edit import sources
         fields['composition'] = doc['composition']
         fields['compositionMedia'] = [file_key(p) for p in sources(doc)]
-    return digest({'document':fields,'video':file_key(doc.get('video')),'audio':file_key(doc.get('audio'))})
+    return digest({'document':fields,'video':file_key(doc.get('video')),'audio':'' if video_audio.original(doc) else file_key(doc.get('audio'))})
 
 
 def alignment_signature(doc):
+    if video_audio.original(doc): return digest(['video-original',[file_key(p) for p in video_audio.paths(doc)],doc.get('composition'),file_key(doc.get('video'))])
     return digest([file_key(doc.get('video')),file_key(doc.get('audio')),doc.get('audioOffset')])
 
 
@@ -77,7 +81,7 @@ def media_signature(doc):
 def blockers(doc):
     errors=[];state=doc.get('timing',{});offset=float(doc.get('audioOffset',0));shift=float(doc.get('subtitleShift',0))
     aligned=doc.get('workflow',{}).get('alignedAudio')
-    if aligned and aligned==file_key(doc.get('audio')) and abs(offset)>.000001:
+    if not video_audio.original(doc) and aligned and aligned==file_key(doc.get('audio')) and abs(offset)>.000001:
         errors.append('此音轨已标记为对齐视频，音频偏移应为 0；请清零，或取消已对齐标记')
     if doc.get('composition'):
         from video_edit import blockers as picture_blockers
@@ -85,7 +89,7 @@ def blockers(doc):
     if not doc.get('cues'):return errors
     if state.get('clock') not in ['audio','video']:
         errors.append('字幕时间基准尚未确认：请选择字幕已是视频时间，或重新导入并指定混音时间')
-    elif state.get('audioKey')!=file_key(doc.get('audio')) or state.get('videoKey')!=file_key(doc.get('video')):
+    elif (not video_audio.original(doc) and state.get('audioKey')!=file_key(doc.get('audio'))) or (not doc.get('composition') and state.get('videoKey')!=file_key(doc.get('video'))):
         errors.append('素材已更换或被覆盖，请重新确认当前字幕使用的视频时间基准')
     if state.get('clock')=='audio' and abs(state.get('appliedAudioOffset',0))>.02 and abs(shift-state['appliedAudioOffset'])<.02 and state.get('ackShift')!=shift:
         errors.append(f"字幕已包含音频偏移 {state['appliedAudioOffset']:+.3f} 秒；字幕整体移动又是 {shift:+.3f} 秒，可能重复添加。请清零或明确确认这是额外微调")
@@ -97,6 +101,7 @@ def checks(doc,jobs):
     if doc.get('composition'):
         from video_edit import blockers as picture_blockers
         ready['video'] = not picture_blockers(doc)
+    if video_audio.original(doc): ready['audio']=video_audio.available(doc)
     tools=bool(settings.executable('ffmpeg',False) and settings.executable('ffprobe',False))
     state=doc.get('timing',{});review=doc.get('workflow',{})
     errors=blockers(doc)
@@ -123,7 +128,7 @@ def checks(doc,jobs):
     if not ready['video'] and not (shutil.which('yt-dlp') or importlib.util.find_spec('yt_dlp')):
         missing_mv.append('链接下载需要可选视频工具；也可直接使用本地 MV')
     add('mv','准备画面' if doc.get('composition') else '获取 MV',missing_mv,'在媒体库导入素材并补齐画面时间轴' if doc.get('composition') else '本地素材也可直接完成这一步')
-    add('mix','导入混音',[] if ready['audio'] else ['选择 Studio One 最终混音文件'],'请使用人声与伴奏已混好的版本')
+    add('mix','使用视频原声' if video_audio.original(doc) else '导入混音',[] if ready['audio'] else ['可见画面需要带音轨的视频' if video_audio.original(doc) else '选择 Studio One 最终混音文件，或改用视频原声'],'原声跟随当前可见片段；无音片段补静音' if video_audio.original(doc) else '请使用人声与伴奏已混好的版本')
     needs=[]
     if not all(ready.values()):needs.append('先准备 MV 和最终混音')
     if review.get('alignment')!=alignment_signature(doc):needs.append('比较开头、中段、结尾后，确认声音已对齐')
@@ -142,7 +147,7 @@ def checks(doc,jobs):
     add('preview','预览检查',needs,'修改文字、时间、样式或音频处理后，需重新生成预览')
     add('export','导出成片',[] if exports else ['当前版本尚未完整导出'],'每次导出创建独立目录，保留旧成片')
     pending_delta=0
-    if state.get('clock')=='audio' and state.get('audioKey')==file_key(doc.get('audio')) and state.get('videoKey')==file_key(doc.get('video')):
+    if not video_audio.original(doc) and state.get('clock')=='audio' and state.get('audioKey')==file_key(doc.get('audio')) and state.get('videoKey')==file_key(doc.get('video')):
         pending_delta=round(float(doc.get('audioOffset',0))-state.get('appliedAudioOffset',0),6)
     return {'steps':steps,'completed':sum(s['done'] for s in steps),'blockers':errors,'invalid':invalid,
             'analysisIds':[j['id'] for j in jobs if j.get('kind')=='analyze' and j.get('status')=='completed' and j.get('result',{}).get('mediaSignature')==media_signature(doc)],
@@ -157,7 +162,9 @@ def review(ident,body):
         if doc['revision']!=body.get('revision'):raise ValueError('工程已更新，请重新载入后检查')
         action=body.get('action');state=copy.deepcopy(doc.get('workflow',{}));clock=copy.deepcopy(doc.get('timing',{}))
         if action=='alignment':
-            if not file_key(doc.get('video')) or not file_key(doc.get('audio')):raise ValueError('请先选择有效视频和混音')
+            if video_audio.original(doc):
+                if not video_audio.available(doc): raise ValueError('请先准备带音轨的可见视频')
+            elif (not doc.get('composition') and not file_key(doc.get('video'))) or not file_key(doc.get('audio')):raise ValueError('请先选择有效视频和混音')
             state['alignment']=alignment_signature(doc)
         elif action=='video-clock':clock=timing(doc,'video')
         elif action=='ack-shift':clock['ackShift']=doc['subtitleShift']

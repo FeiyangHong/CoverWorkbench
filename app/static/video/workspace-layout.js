@@ -8,7 +8,7 @@ const write=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value));}c
 const key=()=> 'cw-video-view:'+project;
 function section(id,title){const el=document.createElement('section');el.id=id;el.className='settings-panel';el.hidden=true;const h=document.createElement('h2');h.textContent=title;el.append(h);$('.inspector').append(el);return el;}
 const sound=section('sound','音乐、对齐与响度'),subtitles=section('subtitleSource','字幕来源'),picture=section('pictureSettings','画布与片段');
-const sources=$('#sources');$('#sources > h2').textContent='参考视频与下载';$('#video').closest('label').firstChild.textContent='参考视频（对时 / 整段 MV）';const lines=$$('#sources > hr'),audio=$('#audio').closest('label');sound.append(audio);
+const sources=$('#sources');$('#sources > h2').textContent='参考视频与下载';$('#video').closest('label').firstChild.textContent='参考视频（对时 / 整段 MV）';const lines=$$('#sources > hr'),audio=$('#audio').closest('label');sound.append(audio);sound.prepend($('#audioSource').closest('label'));
 let el=lines[0].nextElementSibling;
 while(el&&el!==lines[1]){const next=el.nextElementSibling;sound.append(el);el=next;}
 el=lines[1].nextElementSibling;

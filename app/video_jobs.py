@@ -19,6 +19,7 @@ import settings
 import lifecycle
 import video_project as project
 import video_workflow
+import video_audio
 import video_storage
 import media_names
 from core import read_json, save_json, sha
@@ -120,8 +121,9 @@ def submit(ident, body):
         kind=body.get('kind')
         if kind not in ['preview','export','analyze','download']: raise ValueError('未知视频任务')
         if kind!='download':
-            if (not doc['video'] and not doc.get('composition')) or not doc['audio']: raise ValueError('请先准备画面与翻唱混音，并保存')
+            if (not doc['video'] and not doc.get('composition')) or (not video_audio.original(doc) and not doc['audio']): raise ValueError('请先准备画面并选择视频原声或外部混音，然后保存')
             settings.executable('ffmpeg'); settings.executable('ffprobe')
+            if kind=='analyze' and video_audio.original(doc):raise ValueError('视频原声直接跟随画面，无需估计外部混音偏移')
             if kind=='analyze' and doc.get('composition'):raise ValueError('拼接模式以成品混音为时间基准；请直接试听音乐与字幕，不使用整曲 MV 偏移分析')
         if kind in ['preview','export']:
             errors=video_workflow.blockers(doc)
@@ -278,19 +280,21 @@ def render(j):
     doc=j['snapshot']; folder=Path(j['folder'])
     if video_workflow.signature(doc)!=j['renderSignature']:raise ValueError('排队后素材发生变化，请重新提交任务')
     composition=doc.get('composition')
-    ai=probe(j,doc['audio'])
+    source_original=video_audio.original(doc)
+    ai=None if source_original else probe(j,doc['audio'])
     if composition:
         vi={'duration':composition['duration'],'streams':[{'codec_type':'video','width':1920,'height':1080}]}
     else:vi=probe(j,doc['video'])
     duration=vi['duration']
     video=next((s for s in vi['streams'] if s['codec_type']=='video'),None)
     if not video: raise ValueError('所选视频没有画面流')
-    if not any(s['codec_type']=='audio' for s in ai['streams']): raise ValueError('翻唱素材没有音频流')
+    if not source_original and not any(s['codec_type']=='audio' for s in ai['streams']): raise ValueError('翻唱素材没有音频流')
     warnings=project.warnings(doc,duration)
     project.write_subtitles(doc,folder,duration)
     from video_edit import sources, build_picture
-    before={p:sha(p) for p in ([doc['audio']]+sources(doc) if composition else [doc['video'],doc['audio']])}
-    if doc['audioOffset']+ai['duration']>duration+.1: warnings.append({'id':'audio','messages':['视频以原时长结束，尾部音频可能被裁切，请试听结尾']})
+    input_paths=(sources(doc) if composition else [doc['video']])+([] if source_original else [doc['audio']])
+    before={p:sha(p) for p in dict.fromkeys(input_paths)}
+    if not source_original and doc['audioOffset']+ai['duration']>duration+.1: warnings.append({'id':'audio','messages':['视频以原时长结束，尾部音频可能被裁切，请试听结尾']})
     if j['kind']=='analyze':
         reference=measure(j,doc['video'],label='测量原视频响度')
         cover=measure(j,doc['audio'],aligned(doc,duration),label='测量对齐翻唱响度')
@@ -304,15 +308,21 @@ def render(j):
     start=j['spec'].get('start',0); end=min(duration,j['spec'].get('end',duration))
     if start>=end: raise ValueError('预览区间超出视频长度')
     picture=build_picture(j,start,end,ff,update) if composition else doc['video']
-    base=aligned(doc,duration)
+    temporary_audio=[];audio_details=None
+    if source_original:
+        audio_path,audio_details,temporary_audio=video_audio.build(j,start,end,ff,probe,update)
+        ai=probe(j,audio_path);base='aresample=48000,asetpts=PTS-STARTPTS';audio_first=0;audio_last=end-start
+    else:
+        audio_path=doc['audio'];base=aligned(doc,duration);audio_first=start;audio_last=end
     measured=None
-    if doc['audioMode']=='normalize':
+    if source_original: pass
+    elif doc['audioMode']=='normalize':
         measured=measure(j,doc['audio'],base,label='响度处理第一遍测量',target=doc['targetLufs'])
         base+=f",loudnorm=I={doc['targetLufs']}:TP=-1:LRA=11:measured_I={measured['input_i']}:measured_TP={measured['input_tp']}:measured_LRA={measured['input_lra']}:measured_thresh={measured['input_thresh']}:offset={measured['target_offset']}:linear=true"
     else:
         # Oversampled limiter catches intersample peaks; always remeasure encoded output.
         base+=f",aresample=192000,volume={doc['gainDb']}dB,alimiter=limit=0.794328:level=false:latency=true,aresample=48000"
-    base+=f',atrim=start={start}:end={end},asetpts=PTS-STARTPTS'
+    base+=f',atrim=start={audio_first}:end={audio_last},asetpts=PTS-STARTPTS'
     vfilter=[]
     if composition:vfilter.append(f'setpts=PTS+{start}/TB')
     # Normalize SAR/rotation to a display canvas before positioning ASS subtitles.
@@ -325,7 +335,7 @@ def render(j):
     ext='mp4' if is_preview else doc['format']
     partial=folder/('preview.rendering.'+ext if is_preview else 'video.rendering.'+ext)
     output=folder/j.get('outputName',video_storage.output_name(j,ext))
-    args=['-i',picture,'-i',doc['audio'],'-map','0:v:0','-map','1:a:0','-vf',','.join(vfilter),'-af',base,
+    args=['-i',picture,'-i',audio_path,'-map','0:v:0','-map','1:a:0','-vf',','.join(vfilter),'-af',base,
           '-c:v','libx264','-preset','veryfast' if is_preview else 'medium','-crf',str(21 if is_preview else doc['crf']),
           '-pix_fmt','yuv420p','-fps_mode','cfr' if composition else 'passthrough' if is_preview or doc['fps']=='source' else 'cfr',
           '-c:a','aac','-b:a','320k','-ar','48000','-t',str(end-start),'-map_metadata','-1']
@@ -348,8 +358,8 @@ def render(j):
     report=dict(status='complete',revision=doc['revision'],inputs=before,sourceUnchanged=True,sourceVideo=vi,sourceAudio=ai,
                 renderSignature=j['renderSignature'],
                 output=output_info,loudness=loudness,warnings=warnings,start=start,end=end,
-                subtitleClock='video seconds; subtitleShift applied once',audioOffset=doc['audioOffset'],
-                audioMode=doc['audioMode'],measured=measured,limitations='Decode, duration, hash and loudness checks; final listening/translation review remains manual.')
+                subtitleClock='video seconds; subtitleShift applied once',audioOffset=0 if source_original else doc['audioOffset'],audioSource=doc.get('audioSource','mix'),sourceAudioPlan=audio_details,
+                audioMode='original-level' if source_original else doc['audioMode'],measured=measured,limitations='Decode, duration, hash and loudness checks; final listening/translation review remains manual.')
     check(j); partial.rename(output)
     report['sha256']=sha(output)
     save_json(folder/'report.json',report)
@@ -359,6 +369,9 @@ def render(j):
             try:
                 if temp.is_file():temp.unlink()
             except OSError:pass
+    for temp in temporary_audio:
+        try:temp.unlink(missing_ok=True)
+        except OSError:pass
     update(j,result=report,files=[output.name,'captions.ass','captions.srt','caption-timing.json','snapshot.json','report.json'])
 
 

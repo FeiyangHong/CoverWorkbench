@@ -9,9 +9,9 @@ const audioCache=new Map(),waveCache=new Map(),videoCache=new Map();
 const waveQueue=[];let waveRunning=0;
 const defaults={picture:true,mix:true,source:false,original:true,translation:true};
 const tracks=document.createElement('details');tracks.className='monitor-track-menu';tracks.id='monitorTracks';
-tracks.innerHTML='<summary>轨道显示</summary><div><button type="button" class="quiet" id="monitorAll">全部轨道</button><button type="button" class="quiet" id="monitorCaptionsOnly">只看字幕</button>'+Object.entries({picture:'画面概览',mix:'混音波形',source:'原视频波形',original:'原文字幕',translation:'译文字幕'}).map(([key,label])=>`<label><input type="checkbox" data-monitor-track="${key}">${label}</label>`).join('')+'<small>仅改变本机视图，不影响导出。</small></div>';
+tracks.innerHTML='<summary>轨道显示</summary><div><button type="button" class="quiet" id="monitorAll">全部轨道</button><button type="button" class="quiet" id="monitorCaptionsOnly">只看字幕</button>'+Object.entries({picture:'画面概览',mix:'导出音源波形',source:'原视频波形',original:'原文字幕',translation:'译文字幕'}).map(([key,label])=>`<label><input type="checkbox" data-monitor-track="${key}">${label}</label>`).join('')+'<small>仅改变本机视图，不影响导出。</small></div>';
 $('.editor-view-toolbar').append(tracks);
-const listening=$('#listen').closest('label');listening.classList.add('monitor-listen');$('.transport').append(listening);listening.title='监听切换不影响导出；成片仍使用选定的翻唱混音';
+const listening=$('#listen').closest('label');listening.classList.add('monitor-listen');$('.transport').append(listening);listening.title='默认跟随导出音源；对比监听不改变成片音源';
 const soundStatus=document.createElement('small');soundStatus.id='sourceSoundStatus';soundStatus.setAttribute('role','status');$('.preview-monitor').append(soundStatus);
 function state(){return ui.get();}
 function persist(){try{localStorage.setItem('cw-video-tracks:'+project,JSON.stringify(prefs));}catch{}}
@@ -29,7 +29,7 @@ function descriptor(t=state().position){
 }
 function request(source,kind,doc=state().doc){return ui.api('/api/video-preview/'+encodeURIComponent(doc.id),{kind,revision:doc.revision,role:source.role,asset:source.asset,expectedPath:source.path,force:source.force===true}).catch(e=>{if(/Unknown action/i.test(e.message))throw Error('后台尚未加载本次更新，请保存草稿，彻底退出后重新启动工作台');throw e;});}
 function key(source){return state().doc.id+'|'+state().doc.revision+'|'+(source.asset||source.role)+'|'+source.path;}
-function pause(){sound.pause();if($('#listen').value!=='original'&&!state().exact)soundStatus.textContent='';}
+function pause(){sound.pause();if(ui.listenSource()!=='original'&&!state().exact)soundStatus.textContent='';}
 async function prepare(){
  const source=descriptor(),doc=state().doc;if(!doc||state().exact)return null;
  if(!source){pause();loadedSound='';soundStatus.textContent=doc.composition?'当前画面为图片或空白，没有原视频声音':'';return null;}
@@ -38,10 +38,10 @@ async function prepare(){
  const result=await audioCache.get(id);if(loadingSound===id)loadingSound='';if(closed||token!==soundToken||!state().doc||key(descriptor()||{})!==id)return null;
  if(!result.available){pause();sound.removeAttribute('src');sound.load();loadedSound=id;soundStatus.textContent=result.message||'原视频没有可试听音轨';return result;}
  if(loadedSound!==id){if(sound.src!==new URL(result.url,location.href).href){pause();sound.src=result.url;sound.load();}loadedSound=id;}
- readySound=true;soundStatus.textContent='原声监听已就绪 · 不影响成片混音';return result;
+ readySound=true;soundStatus.textContent=doc.audioSource==='video'&&$('#listen').value==='output'?'视频原声已就绪 · 当前导出音源':'原声对比已就绪 · 不改变导出音源';return result;
 }
 function sync(t,playing,force=false){
- if(closed||state().exact||$('#listen').value!=='original'){pause();return;}
+ if(closed||state().exact||ui.listenSource()!=='original'){pause();return;}
  const source=descriptor(t);if(!source){pause();return;}const id=key(source);
  if(loadedSound!==id){pause();if(loadingSound!==id)prepare().catch(e=>{soundStatus.textContent=e.message;});return;}
  if(!readySound||!sound.src)return;
@@ -63,7 +63,6 @@ async function previewVideo(force=false){
 async function apply(role){
  if(!state().doc)return;const button=$('#apply'+(role==='video'?'Video':'Audio'));if(button.disabled)return;button.disabled=true;status(role,'正在应用路径并保存当前草稿…');
  try{ui.stop();await ui.save();ui.reloadSources();proxyKey='';if(role==='video'){
-   if(!state().doc.audio)$('#listen').value='original';
    if(state().doc.composition)status(role,'已应用对时参考视频；画面片段请从媒体库添加，现有剪辑保持原样');
    else{status(role,'路径已应用，播放器已重新加载');await previewVideo();}
   }else status(role,'混音路径已应用并加载');schedule();
@@ -90,16 +89,18 @@ function pathFor(data,duration,start=0,begin=0,length=Infinity){
 }
 function svg(paths){return '<svg viewBox="0 0 1000 56" preserveAspectRatio="none" aria-hidden="true">'+paths.map(d=>'<path d="'+d+'"/>').join('')+'</svg>';}
 function lane(kind,label,content){return `<div class="monitor-lane monitor-${kind}" data-monitor-lane="${kind}"><span class="monitor-lane-label">${label}</span>${content}</div>`;}
+function originalWave(doc,duration){const clips=doc.composition?window.CWPictureEdits.segments(doc.composition).map(({start,end,clip:c})=>({...c,start,duration:end-start,in:c.in+Math.max(0,start-c.start),assetInfo:doc.composition.assets.find(a=>a.id===c.asset)})).filter(c=>c.assetInfo?.kind==='video'):doc.video?[{start:0,in:0,duration,assetInfo:{path:doc.video,role:'video'}}]:[];
+  const paths=[];let loading=false,unavailable='';for(const c of clips){const a=c.assetInfo,data=wave({path:a.path,...(a.role?{role:a.role}:{asset:a.id})});loading||=data.loading;unavailable=data.message||unavailable;if(data.available)paths.push(pathFor(data,duration,c.start,c.in,c.duration));}
+return paths.length?svg(paths):'<small>'+esc(loading?'正在生成波形…':unavailable||'当前没有视频音轨')+'</small>';
+}
 function paintCanvas(canvas,duration,picture=false){
  const doc=state().doc;if(!doc||!canvas||!duration)return;
  let root=canvas.querySelector(':scope > .monitor-lanes');if(!root){root=document.createElement('div');root.className='monitor-lanes';canvas.append(root);}
  const output=[];
  if(prefs.picture&&!picture&&doc.composition)output.push(lane('picture','画面',doc.composition.clips.map(c=>{const a=doc.composition.assets.find(a=>a.id===c.asset);return `<span class="monitor-picture-clip" style="left:${c.start/duration*100}%;width:${c.duration/duration*100}%">${esc(a?.name||'画面')}</span>`;}).join('')));
- if(prefs.mix&&doc.audio){const data=wave({role:'audio',path:doc.audio});output.push(lane('mix','混音 · '+esc(doc.audio.split(/[\\/]/).pop()),data.loading?'<small>正在生成波形…</small>':data.available?svg([pathFor(data,duration,doc.audioOffset)]):'<small>'+esc(data.message||'无音轨')+'</small>'));}
- if(prefs.source){const clips=doc.composition?window.CWPictureEdits.segments(doc.composition).map(({start,end,clip:c})=>({...c,start,duration:end-start,in:c.in+Math.max(0,start-c.start),assetInfo:doc.composition.assets.find(a=>a.id===c.asset)})).filter(c=>c.assetInfo?.kind==='video'):doc.video?[{start:0,in:0,duration,assetInfo:{path:doc.video,role:'video'}}]:[];
-  const paths=[];let loading=false,unavailable='';for(const c of clips){const a=c.assetInfo,data=wave({path:a.path,...(a.role?{role:a.role}:{asset:a.id})});loading||=data.loading;unavailable=data.message||unavailable;if(data.available)paths.push(pathFor(data,duration,c.start,c.in,c.duration));}
-  output.push(lane('source','原视频声音',paths.length?svg(paths):'<small>'+esc(loading?'正在生成波形…':unavailable||'当前没有视频音轨')+'</small>'));
- }
+ if(prefs.mix&&doc.audioSource==='video')output.push(lane('mix','视频原声 · 导出音源',originalWave(doc,duration)));
+ else if(prefs.mix&&doc.audio){const data=wave({role:'audio',path:doc.audio});output.push(lane('mix','混音 · '+esc(doc.audio.split(/[\\/]/).pop()),data.loading?'<small>正在生成波形…</small>':data.available?svg([pathFor(data,duration,doc.audioOffset)]):'<small>'+esc(data.message||'无音轨')+'</small>'));}
+ if(prefs.source&&!(doc.audioSource==='video'&&prefs.mix))output.push(lane('source','原视频声音',originalWave(doc,duration)));
  const text=output.join('');if(root._monitorMarkup!==text){root._monitorMarkup=text;root.innerHTML=text;}
  root.onclick=e=>{if(e.target.closest('.monitor-lane-label'))return;const box=root.getBoundingClientRect();ui.seek(Math.max(0,Math.min(duration,(e.clientX-box.left)/box.width*duration)));};
 }
@@ -110,10 +111,10 @@ function render(){
 }
 function schedule(){if(!scheduled&&!closed){scheduled=true;requestAnimationFrame(render);}}
 for(const id of ['captionCanvas','editCanvas'])new MutationObserver(schedule).observe($('#'+id),{childList:true});
-function opened(){const doc=state().doc;if(!doc)return;if(project!==doc.id){pause();sound.removeAttribute('src');soundToken++;proxyToken++;loadedSound='';loadingSound='';readySound=false;proxyKey='';project=doc.id;try{prefs={...defaults,...JSON.parse(localStorage.getItem('cw-video-tracks:'+project)||'{}')};}catch{prefs={...defaults};}paintPreferences();}if(!doc.audio&&doc.video)$('#listen').value='original';previewVideo();schedule();}
+function opened(){const doc=state().doc;if(!doc)return;if(project!==doc.id){pause();sound.removeAttribute('src');soundToken++;proxyToken++;loadedSound='';loadingSound='';readySound=false;proxyKey='';project=doc.id;try{prefs={...defaults,...JSON.parse(localStorage.getItem('cw-video-tracks:'+project)||'{}')};}catch{prefs={...defaults};}paintPreferences();}previewVideo();schedule();}
 sound.addEventListener('loadedmetadata',()=>sync(state().position,window.CWVideoEdit?.active()?window.CWVideoEdit.isPlaying():!ui.player.paused,true));
 ui.player.addEventListener('pause',()=>{if(!window.CWVideoEdit?.active())pause();});
-window.addEventListener('cw-video-change',e=>{if(['document','open','save','history'].includes(e.detail.type))opened();if(e.detail.type==='pause')pause();if(e.detail.type==='preview'){pause();soundStatus.textContent='准确预览播放的是已渲染的成片混音，原声监听已暂停';}schedule();});
+window.addEventListener('cw-video-change',e=>{if(['document','open','save','history'].includes(e.detail.type))opened();if(e.detail.type==='pause')pause();if(e.detail.type==='preview'){pause();soundStatus.textContent='准确预览播放的是任务所选音源的实际渲染，单独监听已暂停';}schedule();});
 window.addEventListener('cw-workbench-exit',()=>{closed=true;soundToken++;proxyToken++;pause();});
 window.CWVideoMonitor={apply,prepare,sync,pause,fallback:()=>previewVideo(true)};
 ui.ready.then(opened);

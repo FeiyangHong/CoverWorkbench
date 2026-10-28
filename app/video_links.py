@@ -217,7 +217,9 @@ def perform(ident, body):
                 raise ValueError(source['captions']['issue'] or '音乐工程尚无有效时间字幕')
             if captions and not audio and (not source['audio'] or not target['audio'] or Path(target['audio']).resolve() != Path(source['audio']['path']).resolve()):
                 raise ValueError('当前视频音轨与音乐侧混音不同，请同时带入混音，避免套用错误的字幕时间基准')
+            if captions and not audio and target.get('audioSource')=='video': raise ValueError('当前使用视频原声；请在字幕面板导入视频时间稿，或同时带入外部混音')
             if audio:
+                target['audioSource']='mix'
                 target['audio'] = source['audio']['path']
             if captions:
                 target['cues'] = copy.deepcopy(source['_cues'])

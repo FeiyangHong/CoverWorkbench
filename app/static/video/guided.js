@@ -17,8 +17,9 @@ function guideView(){
  const labels={audio:'跟随混音时间',video:'固定视频时间',unknown:'尚未确认'};
  let actions='';
  if(step.id==='mv')actions=doc.composition?button('library','导入本地素材')+button('download','下载画面素材'):button('download','粘贴链接下载 MV')+button('video','选择本地视频');
- if(step.id==='mix')actions=button('audio','选择最终混音');
- if(step.id==='align')actions=(doc.composition?button('listen-mix','试听音乐与字幕'):button('analyze','测量偏移与响度'))+button('alignment','已试听三段，确认对齐')+button('aligned-audio',checks.audioAligned?'取消音轨已对齐标记':'此音轨已经对齐视频，锁定偏移为 0');
+ if(step.id==='mix')actions=button('audio-source','选择导出音源');
+ if(step.id==='align'&&doc.audioSource==='video')actions=button('listen-mix','试听视频原声与字幕')+button('alignment','已试听三段，确认对齐');
+ else if(step.id==='align')actions=(doc.composition?button('listen-mix','试听音乐与字幕'):button('analyze','测量偏移与响度'))+button('alignment','已试听三段，确认对齐')+button('aligned-audio',checks.audioAligned?'取消音轨已对齐标记':'此音轨已经对齐视频，锁定偏移为 0');
  if(step.id==='captions'){
   actions=button('captions','导入双语字幕')+button('table','定位字幕表')+button('single-language',doc.workflow?.singleLanguage?'恢复双语要求':'本曲只用单语字幕');
   if(doc.cues.length&&checks.blockers.length)actions+=button('video-clock','确认现有字幕已是视频时间，不再加偏移');
@@ -34,7 +35,7 @@ function guideView(){
  $$('[data-step]').forEach(b=>b.onclick=()=>{active=b.dataset.step;expanded=true;guideView();});
  $('#guideNext').onclick=()=>{const i=checks.steps.findIndex(s=>s.id===active);active=checks.steps[Math.min(i+1,5)].id;guideView();};
  $$('[data-guide-action]').forEach(b=>b.onclick=ui.safe(async()=>{
-  const action=b.dataset.guideAction;if(action==='library'){panel('sources');$('#editImport').click();return;}if(action==='listen-mix'){ui.seek(0);$('#play').click();return;}
+  const action=b.dataset.guideAction;if(action==='audio-source'){panel('sound','#audioSource');return;}if(action==='library'){panel('sources');$('#editImport').click();return;}if(action==='listen-mix'){ui.seek(0);$('#play').click();return;}
   if(action==='video'||action==='audio'){panel('sources','#'+action);return;}
   if(action==='download'){panel('sources');$('#sources details').open=true;$('#url').focus();return;}
   if(['analyze','captions','preview','export'].includes(action)){$('#'+action).click();return;}

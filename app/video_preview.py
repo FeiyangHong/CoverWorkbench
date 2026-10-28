@@ -44,7 +44,7 @@ def source(ident, body):
 
 def fingerprint(path):
     stat = path.stat()
-    return hashlib.sha256(json.dumps([str(path), stat.st_size, stat.st_mtime_ns, 2]).encode()).hexdigest()
+    return hashlib.sha256(json.dumps([str(path), stat.st_size, stat.st_mtime_ns, 3]).encode()).hexdigest()
 
 
 def peaks(path, duration):
@@ -54,7 +54,8 @@ def peaks(path, duration):
     # Decode in chunks; neither long files nor malformed headers allocate a PCM-sized buffer.
     with tempfile.TemporaryFile() as errors:
         process = subprocess.Popen([settings.executable('ffmpeg'), '-v', 'error', '-nostdin', '-i', str(path),
-                                    '-vn', '-map', '0:a:0', '-ac', '1', '-ar', str(rate), '-f', 'f32le', 'pipe:1'],
+                                    '-vn', '-map', '0:a:0', '-af', f'aresample={rate}:async=1:first_pts=0,apad,atrim=duration={duration}',
+                                    '-ac', '1', '-ar', str(rate), '-f', 'f32le', 'pipe:1'],
                                    stdout=subprocess.PIPE, stderr=errors,
                                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         timer = threading.Timer(180, process.kill)
@@ -109,7 +110,7 @@ def prepare(ident, body):
         output = folder / (kind + '.' + extension)
         if not output.is_file():
             partial = folder / ('partial-' + uuid.uuid4().hex + '.' + extension)
-            args = ['-map', '0:a:0', '-vn', '-c:a', 'aac', '-b:a', '160k'] if kind == 'audio' else [
+            args = ['-map', '0:a:0', '-vn','-af',f"aresample=48000:async=1:first_pts=0,apad,atrim=duration={metadata['duration']}", '-c:a', 'aac', '-b:a', '320k'] if kind == 'audio' else [
                 '-map', '0:v:0', '-map', '0:a:0?', '-vf', 'scale=960:540:force_original_aspect_ratio=decrease:force_divisible_by=2,setsar=1',
                 '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '24', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '160k']
             try:

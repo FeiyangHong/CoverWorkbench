@@ -108,8 +108,17 @@ def shift_caption(row, delta):
 
 def validate(doc):
     if not isinstance(doc, dict): raise ValueError('无效的视频工程')
-    for key in ['video', 'audio']:
-        if doc.get(key): doc[key] = str(local(doc[key], MEDIA))
+    source=doc.get('audioSource','mix')
+    if source not in ('mix','video'): raise ValueError('请选择视频原声或外部混音')
+    doc['audioSource']=source
+    for key in ['video','audio']:
+        if not doc.get(key): continue
+        unused=(key=='audio' and source=='video') or (key=='video' and doc.get('composition'))
+        if unused:
+            path=Path(clean_path(doc[key]))
+            if not path.is_absolute() or str(path).startswith(('\\\\','//')) or path.suffix.lower() not in MEDIA: raise ValueError('素材须为本机媒体文件的绝对路径')
+            doc[key]=str(path.resolve())
+        else: doc[key]=str(local(doc[key],MEDIA))
     doc['audioOffset'] = number(doc.get('audioOffset', 0), -600, 600, '音频偏移')
     doc['subtitleShift'] = number(doc.get('subtitleShift', 0), -600, 600, '字幕整体偏移')
     doc['gainDb'] = number(doc.get('gainDb', 0), -60, 24, '音频增益')
@@ -166,7 +175,7 @@ def warnings(doc, duration=None):
 
 def create(body, internal=None, directory=None):
     name = component(body.get('name', 'New Video'), '视频工程名')
-    doc = dict(name=name, video='', audio='', audioOffset=0, subtitleShift=0, gainDb=0, targetLufs=-14,
+    doc = dict(name=name, video='', audio='', audioSource='mix', audioOffset=0, subtitleShift=0, gainDb=0, targetLufs=-14,
                audioMode='gain', resolution='source', fps='source', format='mp4', crf=18, burn=True,
                styles={'original': dict(STYLE), 'translation': {**STYLE, 'size':44, 'y':1026}}, cues=[], provenance=[])
     if body.get('mode')=='edit':
@@ -197,7 +206,7 @@ def save(ident, body, internal=None):
     with LOCK:
         current = load(ident)
         if body.get('revision') != current['revision']: raise ValueError('工程已在另一窗口更新；请重新载入，避免覆盖其修改')
-        keys = {'video','audio','audioOffset','subtitleShift','gainDb','targetLufs','audioMode','resolution','fps','format','crf','burn','styles','cues','composition'}
+        keys = {'video','audio','audioSource','audioOffset','subtitleShift','gainDb','targetLufs','audioMode','resolution','fps','format','crf','burn','styles','cues','composition'}
         doc = validate({**current, **{k: copy.deepcopy(v) for k,v in body.items() if k in keys}})
         if internal is None:
             from video_workflow import reconcile
@@ -257,6 +266,7 @@ def import_captions(ident, body):
     if not original or not any(r['text'].strip() for r in original):raise ValueError('原文文件没有有效字幕，当前字幕表保留')
     if b and not translation:raise ValueError('译文文件没有有效字幕，当前字幕表保留')
     if any(r['end']<=r['start'] for r in original+translation):raise ValueError('字幕来源有时间倒置或重复时间戳，请检查后导入')
+    if doc.get('audioSource')=='video' and body.get('clock')=='audio': raise ValueError('视频原声已在视频时间轴，请选择字幕已对齐视频，不再添加混音偏移')
     shift = doc['audioOffset'] if body.get('clock') == 'audio' else 0
     # Independent timelines are joined by time, never by row number.
     boundaries = sorted({max(0, round(r[k]+shift, 4)) for r in original+translation for k in ['start','end']})
@@ -387,6 +397,6 @@ def write_subtitles(doc, dest, duration):
         if output and output[-1]['end']==start and all(output[-1][k]==v for k,v in texts.items()):output[-1]['end']=end
         else:output.append({'start':start,'end':end,**texts})
     (dest/'captions.srt').write_text(srt_text(output),encoding='utf-8-sig')
-    save_json(dest/'caption-timing.json',{'clock':'video','audioOffset':doc['audioOffset'],
+    save_json(dest/'caption-timing.json',{'clock':'video','audioSource':doc.get('audioSource','mix'),'audioOffset':0 if doc.get('audioSource')=='video' else doc['audioOffset'],
              'subtitleShift':doc['subtitleShift'],'files':{name:sha(dest/name) for name in ['captions.ass','captions.srt']}})
     return output

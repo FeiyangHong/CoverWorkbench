@@ -142,7 +142,7 @@ CoverWorkbench's original source, documentation and product icons use the **[MIT
 
 ## Video Studio
 
-Open **视频制作** from the workbench for local video sources or optional yt-dlp downloads, independent bilingual caption timelines, per-line typography, saved-SVP timing proposals, loudness/offset analysis, loop playback, and accurate FFmpeg/libass preview clips. Every export has its own folder with captions, a configuration snapshot and validation report. Original media remains unchanged. See the [Chinese Video Studio guide](docs/VideoStudio.md) for setup and the distinction between fast layout playback and actual rendered previews. Optional acquisition/alignment dependencies are installed with `tools/InstallVideoTools.ps1`; FFmpeg/FFprobe are configured locally.
+Open **视频制作** from the workbench for local video sources or optional yt-dlp downloads, a choice of external mix or embedded video audio shared by default preview and export, independent bilingual caption timelines, per-line typography, saved-SVP timing proposals, loudness/offset analysis, loop playback, and accurate FFmpeg/libass preview clips. Every export has its own folder with captions, a configuration snapshot and validation report. Original media remains unchanged. See the [Chinese Video Studio guide](docs/VideoStudio.md) for setup and the distinction between fast layout playback and actual rendered previews. Optional acquisition/alignment dependencies are installed with `tools/InstallVideoTools.ps1`; FFmpeg/FFprobe are configured locally.
 
 ![Local Video Studio with bilingual caption editing and typography controls](docs/images/video-studio.png)
 
