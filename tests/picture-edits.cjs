@@ -23,4 +23,12 @@ const grid={...comp,fps:30,clips:[{...A,duration:1},{...B,start:1,duration:1}],d
 const shifted=edits.insert(grid,{...C,duration:1/30},1/30,{splitId:'GridRight'});assert.ok(shifted.clips.every(c=>Math.abs(c.start*30-Math.round(c.start*30))<1e-8));
 assert.deepEqual(comp,before);
 const imageSplit=edits.insert({...comp,clips:[{...A,asset:'c',in:0}]},C,2,{splitId:'ImageRight'});assert.equal(imageSplit.clips.find(c=>c.id==='ImageRight').in,0);
+const layered={...comp,tracks:[{id:'V1',name:'Lower',hidden:false},{id:'V2',name:'Upper',hidden:false}],clips:[A,B,{...C,id:'Overlay',track:'V2',start:2,duration:2}]};
+edits.checked(structuredClone(layered));assert.equal(edits.front(layered,3).clip.id,'Overlay');
+const hidden=structuredClone(layered);hidden.tracks[1].hidden=true;assert.equal(edits.front(hidden,3).clip.id,'A');
+assert.deepEqual(edits.segments(layered).map(r=>[r.start,r.end,r.clip.id]),[[0,2,'A'],[2,4,'Overlay'],[4,6,'A'],[6,10,'B']]);
+const insertUpper=edits.insert(layered,{...C,id:'UpperInsert',track:'V2',duration:1},3,{splitId:'RightOverlay'});
+assert.deepEqual(insertUpper.clips.filter(c=>edits.trackOf(c)==='V1'),layered.clips.filter(c=>edits.trackOf(c)==='V1'),'Inserting in one track moved another track');
+assert.equal(insertUpper.duration,12);assert.equal(edits.slot(layered,3.8,'Overlay','V2'),3.8);
+assert.throws(()=>edits.checked({...layered,clips:[...layered.clips,{...C,id:'Bad',track:'V2',start:2,duration:1}]}),/已有画面/);
 console.log('PASS: frame-exact interior split/source continuity, picture-only insert and reorder, unequal lengths, gaps, immutable input, no-op, bounds and clip limits');

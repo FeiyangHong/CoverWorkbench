@@ -9,6 +9,7 @@ import lyrics, live, workflow, daw, desktop, projects, native_audio, song_mix, l
 import video_project, video_jobs, video_workflow, video_captions, video_links
 import project_assets, separation, separation_jobs, workspaces
 import sv_starter
+import video_filmstrip
 import video_edit
 import video_preview
 live.prepare_manifest()
@@ -107,6 +108,7 @@ class Handler(BaseHTTPRequestHandler):
             if parts[:2]==['api','video-project'] and len(parts)==3:return self.respond({'project':video_project.load(parts[2]),'jobs':video_jobs.history(parts[2]),'folder':str(video_project.folder(parts[2]))})
             if parts[:2]==['api','video-history'] and len(parts)==3:return self.respond(video_jobs.history(parts[2]))
             if parts[:2]==['api','video-library'] and len(parts)==3:return self.respond(video_edit.library(parts[2]))
+            if parts[0]=='video-filmstrip' and len(parts)==3:return self.file(video_filmstrip.media(parts[1],parts[2]))
             if parts[0]=='video-edit-media' and len(parts)==4:return self.file(video_edit.media(parts[1],parts[2],parts[3]))
             if parts[:2]==['api','video-check'] and len(parts)==3:return self.respond(video_workflow.checks(video_project.load(parts[2]),video_jobs.history(parts[2])))
             if parts[:2]==['api','video-job'] and len(parts)==3:return self.respond(video_jobs.job(parts[2]))
@@ -180,6 +182,7 @@ class Handler(BaseHTTPRequestHandler):
             if action=='video-create':return self.respond(video_project.create(body),201)
             if action=='video-edit-copy':return self.respond(video_edit.edit_copy(pid,body),201)
             if action=='video-edit-enable':return self.respond(video_edit.enable(pid,body))
+            if action=='video-filmstrip':return self.respond(video_filmstrip.prepare(pid,body))
             if action=='video-media-import':return self.respond(video_edit.import_media(pid,body),201)
             if action=='video-media-proxy':return self.respond(video_edit.proxy(pid,body))
             if action=='video-media-info':return self.respond(video_edit.inspect(video_project.local(body.get('path'),video_edit.EXTENSIONS)))

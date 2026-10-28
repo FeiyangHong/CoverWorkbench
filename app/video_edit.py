@@ -1,4 +1,4 @@
-"""Owned media library and a non-destructive, single-picture-track composition."""
+"""Owned media library and a non-destructive, layered picture composition."""
 from pathlib import Path
 import copy
 import json
@@ -13,6 +13,7 @@ from core import read_json, save_json, sha
 import settings
 import video_project as project
 import media_names
+import video_tracks as layers
 
 LOCK = threading.RLock()
 EXTENSIONS = project.MEDIA | {'.png', '.jpg', '.jpeg', '.webp'}
@@ -128,6 +129,15 @@ def validate(value):
            'fps': value.get('fps', 25), 'width': 1920, 'height': 1080,
            'allowGaps': value.get('allowGaps') is True, 'clips': [], 'assets': []}
     if out['fps'] not in [24, 25, 30, 60]: raise ValueError('请选择 24、25、30 或 60 fps')
+    if value.get('tracks') is not None:
+        tracks = value['tracks']
+        if not isinstance(tracks, list) or not 1 <= len(tracks) <= 8: raise ValueError('画面轨道应为 1–8 条')
+        seen = set(); out['tracks'] = []
+        for track in tracks:
+            if not isinstance(track, dict) or not re.fullmatch(r'[A-Za-z0-9_-]{1,64}', str(track.get('id', ''))) or track['id'] in seen: raise ValueError('画面轨道编号无效或重复')
+            name = track.get('name', '')
+            if not isinstance(name, str) or not name.strip() or len(name) > 60: raise ValueError('轨道名称应为 1–60 个字符')
+            seen.add(track['id']); out['tracks'].append({'id':track['id'], 'name':name.strip(), 'hidden':track.get('hidden') is True})
     rows = value.get('assets', [])
     if not isinstance(rows, list) or len(rows) > 300: raise ValueError('媒体库最多引用 300 个素材')
     ids = set()
@@ -142,7 +152,7 @@ def validate(value):
         duration = project.number(row.get('duration'), .001, 86400, '素材时长')
         ids.add(row['id']); out['assets'].append({**row, 'path': str(path), 'duration': duration})
     clips = value.get('clips', [])
-    if not isinstance(clips, list) or len(clips) > 200: raise ValueError('第一版最多使用 200 个画面片段')
+    if not isinstance(clips, list) or len(clips) > 200: raise ValueError('画面轨合计最多使用 200 个片段')
     keys = set(); fps = out['fps']
     for row in clips:
         if not isinstance(row, dict) or not re.fullmatch(r'[A-Za-z0-9_-]{1,64}', str(row.get('id', ''))) or row['id'] in keys:
@@ -159,6 +169,9 @@ def validate(value):
         keys.add(row['id']); out['clips'].append({'id': row['id'], 'asset': row['asset'], 'start': start,
             'duration': length, 'in': begin, 'fit': row.get('fit', 'contain'),
             'x': project.number(row.get('x', 0), -1, 1, '水平取景'), 'y': project.number(row.get('y', 0), -1, 1, '垂直取景')})
+        track = layers.track_of(row)
+        if track not in {t['id'] for t in layers.tracks(out)}: raise ValueError('片段引用了不存在的画面轨道')
+        if 'tracks' in out: out['clips'][-1]['track'] = track
         if row.get('transition') is not None:
             tr = row['transition']
             if not isinstance(tr, dict) or tr.get('type') not in ['dissolve', 'fade']:
@@ -166,17 +179,16 @@ def validate(value):
             frames = round(project.number(tr.get('duration'), 2/fps, 10, '转场时长') * fps / 2) * 2
             out['clips'][-1]['transition'] = {'type': tr['type'], 'duration': frames/fps, 'from': str(tr.get('from', ''))}
     out['clips'].sort(key=lambda c: c['start'])
-    for left, right in zip(out['clips'], out['clips'][1:]):
-        if right['start'] < left['start'] + left['duration'] - .5/fps:
-            raise ValueError('画面片段重叠；第一版单轨请将片段接在前一段之后')
-    for i, right in enumerate(out['clips']):
-        tr = right.get('transition')
-        if not tr: continue
-        left = out['clips'][i-1] if i else None
-        if not left or tr['from'] != left['id'] or abs(right['start']-left['start']-left['duration']) > .5/fps:
-            raise ValueError('转场需要两个相邻且无空隙的画面片段')
-        if tr['duration'] > min(left['duration'], right['duration']) + .001:
-            raise ValueError('转场时长不能超过相邻较短片段的时长')
+    for track in layers.tracks(out):
+        rows = layers.clips_on(out, track['id'])
+        for left, right in zip(rows, rows[1:]):
+            if right['start'] < left['start'] + left['duration'] - .5/fps: raise ValueError('同一画面轨道内不能重叠，请移到另一轨道')
+        for i, right in enumerate(rows):
+            tr = right.get('transition')
+            if not tr: continue
+            left = rows[i-1] if i else None
+            if not left or tr['from'] != left['id'] or abs(right['start']-left['start']-left['duration']) > .5/fps: raise ValueError('转场需要同轨相邻且无空隙的画面片段')
+            if tr['duration'] > min(left['duration'], right['duration']) + .001: raise ValueError('转场时长不能超过相邻较短片段的时长')
     if value.get('fades') is not None:
         fades = value['fades']
         if not isinstance(fades, dict): raise ValueError('片头片尾淡化设置无效')
@@ -194,19 +206,22 @@ def validate(value):
 
 def transitions(comp):
     result = []
-    for i, right in enumerate(comp['clips']):
-        if right.get('transition'):
-            tr = right['transition']; half = round(tr['duration']*comp['fps']/2)
-            cut = round(right['start']*comp['fps'])
-            result.append({'start': cut-half, 'end': cut+half, 'left': comp['clips'][i-1], 'right': right, **tr})
+    for track in layers.tracks(comp):
+        if track.get('hidden'): continue
+        rows = layers.clips_on(comp, track['id'])
+        for i, right in enumerate(rows):
+            if right.get('transition') and i:
+                tr = right['transition']; half = round(tr['duration']*comp['fps']/2)
+                cut = round(right['start']*comp['fps'])
+                result.append({'start':cut-half, 'end':cut+half, 'left':rows[i-1], 'right':right, **tr})
     return result
 
 
 def gaps(comp):
     end = 0.; result = []
-    for clip in sorted(comp['clips'], key=lambda c: c['start']):
+    for clip in sorted(layers.visible_clips(comp), key=lambda c: c['start']):
         if clip['start'] > end + .5/comp['fps']: result.append([end, clip['start']])
-        end = clip['start'] + clip['duration']
+        end = max(end, clip['start'] + clip['duration'])
     if end < comp['duration'] - .5/comp['fps']: result.append([end, comp['duration']])
     return result
 
@@ -214,7 +229,7 @@ def gaps(comp):
 def sources(doc):
     comp = doc.get('composition')
     if not comp: return []
-    used = {c['asset'] for c in comp['clips']}
+    used = {c['asset'] for c in layers.visible_clips(comp)}
     return [a['path'] for a in comp['assets'] if a['id'] in used]
 
 
@@ -288,14 +303,13 @@ def picture_segments(comp, first, last):
     """One frame grid for cuts, transition envelopes and preview slices."""
     fps = comp['fps']; effects = transitions(comp)
     boundaries = {first, last}
-    for clip in comp['clips']:
+    for clip in layers.visible_clips(comp):
         boundaries.update([round(clip['start']*fps), round((clip['start']+clip['duration'])*fps)])
     for tr in effects: boundaries.update([tr['start'], tr['end']])
     points = sorted(p for p in boundaries if first <= p <= last)
     result = []
     for a, b in zip(points, points[1:]):
-        tr = next((tr for tr in effects if tr['start'] <= a < tr['end']), None)
-        clip = next((c for c in comp['clips'] if round(c['start']*fps) <= a < round((c['start']+c['duration'])*fps)), None)
+        tr, clip = layers.front(comp, a)
         result.append((a, b, tr, clip))
     return result
 

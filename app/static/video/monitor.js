@@ -24,7 +24,7 @@ $('#monitorAll').onclick=()=>{prefs={...defaults,source:true};paintPreferences()
 $('#monitorCaptionsOnly').onclick=()=>{prefs={picture:false,mix:false,source:false,original:true,translation:true};window.CWVideoView?.focus('captions');paintPreferences();};
 function descriptor(t=state().position){
  const doc=state().doc;if(!doc)return null;
- if(doc.composition){const c=doc.composition.clips.find(c=>t>=c.start&&t<c.start+c.duration),a=c&&doc.composition.assets.find(a=>a.id===c.asset);return a?.kind==='video'?{path:a.path,asset:a.id,time:c.in+t-c.start}:null;}
+ if(doc.composition){const c=window.CWPictureEdits.front(doc.composition,t).clip,a=c&&doc.composition.assets.find(a=>a.id===c.asset);return a?.kind==='video'?{path:a.path,asset:a.id,time:c.in+t-c.start}:null;}
  return doc.video?{path:doc.video,role:'video',time:t}:null;
 }
 function request(source,kind,doc=state().doc){return ui.api('/api/video-preview/'+encodeURIComponent(doc.id),{kind,revision:doc.revision,role:source.role,asset:source.asset,expectedPath:source.path,force:source.force===true}).catch(e=>{if(/Unknown action/i.test(e.message))throw Error('后台尚未加载本次更新，请保存草稿，彻底退出后重新启动工作台');throw e;});}
@@ -96,7 +96,7 @@ function paintCanvas(canvas,duration,picture=false){
  const output=[];
  if(prefs.picture&&!picture&&doc.composition)output.push(lane('picture','画面',doc.composition.clips.map(c=>{const a=doc.composition.assets.find(a=>a.id===c.asset);return `<span class="monitor-picture-clip" style="left:${c.start/duration*100}%;width:${c.duration/duration*100}%">${esc(a?.name||'画面')}</span>`;}).join('')));
  if(prefs.mix&&doc.audio){const data=wave({role:'audio',path:doc.audio});output.push(lane('mix','混音 · '+esc(doc.audio.split(/[\\/]/).pop()),data.loading?'<small>正在生成波形…</small>':data.available?svg([pathFor(data,duration,doc.audioOffset)]):'<small>'+esc(data.message||'无音轨')+'</small>'));}
- if(prefs.source){const clips=doc.composition?doc.composition.clips.map(c=>({...c,assetInfo:doc.composition.assets.find(a=>a.id===c.asset)})).filter(c=>c.assetInfo?.kind==='video'):doc.video?[{start:0,in:0,duration,assetInfo:{path:doc.video,role:'video'}}]:[];
+ if(prefs.source){const clips=doc.composition?window.CWPictureEdits.segments(doc.composition).map(({start,end,clip:c})=>({...c,start,duration:end-start,in:c.in+Math.max(0,start-c.start),assetInfo:doc.composition.assets.find(a=>a.id===c.asset)})).filter(c=>c.assetInfo?.kind==='video'):doc.video?[{start:0,in:0,duration,assetInfo:{path:doc.video,role:'video'}}]:[];
   const paths=[];let loading=false,unavailable='';for(const c of clips){const a=c.assetInfo,data=wave({path:a.path,...(a.role?{role:a.role}:{asset:a.id})});loading||=data.loading;unavailable=data.message||unavailable;if(data.available)paths.push(pathFor(data,duration,c.start,c.in,c.duration));}
   output.push(lane('source','原视频声音',paths.length?svg(paths):'<small>'+esc(loading?'正在生成波形…':unavailable||'当前没有视频音轨')+'</small>'));
  }

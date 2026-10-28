@@ -33,6 +33,7 @@ jobs:
           python tests/video-studio.py
           python tests/video-edit.py
           python tests/video-enable.py
+          python tests/video-tracks.py
           python tests/video-preview.py
           python tests/video-transitions.py
           python tests/video-storage.py
