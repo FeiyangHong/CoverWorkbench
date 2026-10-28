@@ -31,7 +31,7 @@ function historyStep(action){
  const focused=document.activeElement,caption=focused.closest?.('[data-caption]'),cue=focused.dataset?.cue,style=focused.dataset?.style;
  const selection=['INPUT','TEXTAREA'].includes(focused.tagName)?[focused.selectionStart,focused.selectionEnd]:null;
  const result=edits[action]();if(!result)return;
- Object.assign(doc,result.value);if(!doc.cues.some(r=>r.id===selected))selected=null;
+ const hadPicture=!!doc.composition;Object.assign(doc,result.value);if(!Object.hasOwn(result.value,'composition'))doc.composition=null;if(hadPicture!==!!doc.composition){loadedMedia='';loadMedia();}if(!doc.cues.some(r=>r.id===selected))selected=null;
  if(exact)timeline(clock());editVersion++;applyFields();rows();styles();updateDirty();drawOverlay();validate();changed('history');
  let replacement=cue?$$('[data-cue]').find(el=>el.dataset.cue===cue):style?$$('[data-style]').find(el=>el.dataset.style===style):caption?$$('[data-caption]').find(el=>el.dataset.caption===caption.dataset.caption&&el.dataset.language===caption.dataset.language):focused.id==='subtitleShift'?$('#subtitleShift'):null;
  if(replacement){if(caption&&focused.dataset.edge)replacement=replacement.querySelector('[data-edge="'+focused.dataset.edge+'"]');replacement?.focus({preventScroll:true});if(selection&&selection[0]!==null&&replacement?.setSelectionRange)try{replacement.setSelectionRange(...selection);}catch{}}

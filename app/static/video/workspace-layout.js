@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const ui=window.CWVideoStudio,$=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-let project='',mode='captions',height=280,table=true;
+let project='',mode='captions',height=280,table=true,hadPicture=null;
 const read=key=>{try{return JSON.parse(localStorage.getItem(key));}catch{return null;}};
 const write=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value));}catch{}};
 const key=()=> 'cw-video-view:'+project;
@@ -45,11 +45,11 @@ function persist(){write(key(),{mode,height,table});}
 function focus(value){
  mode=value==='picture'&&!ui.peek().doc?.composition?'captions':value;
  document.body.dataset.editorFocus=mode;document.body.classList.toggle('show-caption-table',table);
- $$('[data-editor-focus]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.editorFocus===mode)));
+ $$('button[data-editor-focus]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.editorFocus===mode)));
  $('#captionTableToggle').checked=table;persist();requestAnimationFrame(()=>{ui.redraw();window.dispatchEvent(new Event('cw-video-layout'));});
 }
 function size(value){height=Math.max(180,Math.min(600,Number(value)||280));document.documentElement.style.setProperty('--preview-height',height+'px');$('#previewSize').value=height;$('#previewSizeValue').textContent=height+' px';persist();ui.redraw();}
-$$('[data-editor-focus]').forEach(b=>b.onclick=()=>focus(b.dataset.editorFocus));
+$$('button[data-editor-focus]').forEach(b=>b.onclick=()=>focus(b.dataset.editorFocus));
 $('#previewSize').oninput=e=>size(e.target.value);
 $('#captionTableToggle').onchange=e=>{table=e.target.checked;focus(mode);};
 const menu=document.createElement('details');menu.className='video-document-menu';menu.innerHTML='<summary>工程与帮助</summary><div><select id="videoProjectSelect" aria-label="切换视频工程"></select><button type="button" class="quiet" data-video-command="editNew">新建剪辑工程</button><button type="button" class="quiet" data-video-command="editCopy">以当前工程创建剪辑副本</button><button type="button" class="quiet" data-video-command="new">新建完整 MV 工程</button><button type="button" class="quiet" data-video-command="legacy">导入现有配置</button><button type="button" class="quiet" id="videoUsageToggle">剪辑操作说明</button></div>';
@@ -59,9 +59,10 @@ $('#videoUsageToggle').onclick=()=>{menu.open=false;$('#editUsage').open=!$('#ed
 $('#videoProjectSelect').onchange=e=>{$('#projects').value=e.target.value;$('#projects').dispatchEvent(new Event('change'));menu.open=false;};
 function catalog(){$('#videoProjectSelect').innerHTML=$('#projects').innerHTML;$('#videoProjectSelect').value=ui.peek().doc?.id||'';}
 function opened(){
- const doc=ui.peek().doc;if(!doc)return;document.body.classList.add('has-document');
+ const doc=ui.peek().doc;if(!doc)return;const pictureChanged=project===doc.id&&hadPicture!==null&&hadPicture!==!!doc.composition;hadPicture=!!doc.composition;document.body.classList.add('has-document');
  if(project!==doc.id){project=doc.id;const pref=read(key())||{};table=pref.table!==false;size(pref.height||280);focus(['picture','captions','overview'].includes(pref.mode)?pref.mode:doc.composition?'picture':'captions');panel('library');workflow.open=false;}
- $('[data-editor-focus="picture"]').hidden=!doc.composition;$('[data-panel="pictureSettings"]').hidden=!doc.composition;catalog();
+ if(!doc.composition&&mode==='picture')focus('captions');else if(pictureChanged&&doc.composition)focus('picture');
+ $('button[data-editor-focus="picture"]').hidden=!doc.composition;$('[data-panel="pictureSettings"]').hidden=!doc.composition;catalog();
 }
 // Route contextual actions to their actual panel, including hidden source fields.
 document.addEventListener('click',e=>{const b=e.target.closest('[data-guide-action]');if(!b)return;const action=b.dataset.guideAction;
@@ -71,7 +72,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-guide-acti
  if(['video','download'].includes(action))panel('sources');if(action==='library')panel('library');
 },true);
 $('#editCanvas').addEventListener('dblclick',e=>{if(e.target.closest('[data-picture]'))panel('pictureSettings');},true);
-window.addEventListener('cw-video-change',e=>{if(['document','open'].includes(e.detail.type))opened();if(e.detail.type==='catalog')catalog();});
+window.addEventListener('cw-video-change',e=>{if(['document','open','history'].includes(e.detail.type))opened();if(e.detail.type==='catalog')catalog();});
 window.CWVideoView={panel,focus,size,showTable:()=>{table=true;focus('captions');}};
 ui.ready.then(opened);
 })();

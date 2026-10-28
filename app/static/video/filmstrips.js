@@ -22,6 +22,7 @@ function paint(){
  if(project!==doc.id){project=doc.id;generation++;queue.length=0;sheets.clear();}
  if(!enabled)return;
  const comp=doc.composition,canvas=$('#editCanvas'),scroll=$('#editScroll'),viewport=scroll.getBoundingClientRect(),box=canvas.getBoundingClientRect(),pps=canvas.clientWidth/comp.duration;
+ if(!canvas.clientWidth||!scroll.clientWidth)return;
  const start=Math.max(0,(viewport.left-box.left)/pps),end=Math.min(comp.duration,(viewport.right-box.left)/pps);
  for(const el of canvas.querySelectorAll('[data-picture]')){
   const clip=comp.clips.find(c=>c.id===el.dataset.picture),strip=el.querySelector('.clip-filmstrip'),asset=clip&&comp.assets.find(a=>a.id===clip.asset);if(!asset||!strip)continue;
