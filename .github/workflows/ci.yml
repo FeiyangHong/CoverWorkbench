@@ -40,6 +40,7 @@ jobs:
           python tests/video-captions.py
           python tests/video-lanes.py
           node tests/video-history.cjs
+          node tests/picture-edits.cjs
           python tests/video-workflow.py
           python tests/video-links.py
           python tests/production.py
