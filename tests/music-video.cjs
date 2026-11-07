@@ -37,7 +37,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
   // Explicitly bind an existing edited project without changing its revision or bytes.
   const existing=await api('/api/video-create/new',{name:'Existing Link Video'});let existingDoc=(await api('/api/video-project/'+existing.id)).project;
   existingDoc.cues=[{id:'Kept',start:8,end:10,original:'Already edited',translation:'保留',translationTiming:{start:8.5,end:10.5}}];existingDoc.styles.original.size=51;existingDoc.audioOffset=4;
-  await api('/api/video-save/'+existing.id,existingDoc);const videoPath=path.join(root,'projects/video',existing.id,'project.json'),before=await fs.readFile(videoPath,'utf8');
+  await api('/api/video-save/'+existing.id,existingDoc);const videoPath=path.join((await api('/api/video-project/'+encodeURIComponent(existing.id))).folder,'project.json'),before=await fs.readFile(videoPath,'utf8');
   await page.locator('#mvManageFromVideo').click();await page.waitForFunction(()=>!document.querySelector('#mvSubmit').disabled);await page.locator('#mvMode').selectOption('bind');await page.locator('#mvExisting').selectOption(existing.id);await page.locator('#mvSubmit').click();
   await child.locator('#name').filter({hasText:existing.id}).waitFor();assert.equal(await fs.readFile(videoPath,'utf8'),before);assert.equal(await child.locator('[data-cue="Kept:original"]').inputValue(),'Already edited');
   await page.locator('#mvManageFromVideo').click();await page.waitForFunction(()=>!document.querySelector('#mvSubmit').disabled);assert.ok(await page.locator('#mvUpdateCaptions').isDisabled());await page.locator('#mvUpdateAudio').check();assert.ok(await page.locator('#mvUpdateCaptions').isEnabled());

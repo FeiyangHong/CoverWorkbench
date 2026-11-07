@@ -75,6 +75,8 @@ projects/Artist - Song/
 
 音乐与视频只需关联一次。已有视频的字幕、样式与对时继续保留；登记文件和进入视频不会覆盖它们，更新视频音频或字幕仍需在关联窗口明确操作。未来输出集中到统一目录，旧工程不必搬家。
 
-本机设置保存在 `config/settings.local.json`，素材表在 `config/project-assets.local.json`，统一目录映射在 `config/workspaces.local.json`，视频关联在 `config/video-links.local.json`。新位置的视频工程通过 `projects/video/.folders.json` 索引。所有个人记录和生成文件均被 Git 忽略。
+本机设置保存在 `config/settings.local.json`，素材表在 `config/project-assets.local.json`，统一目录映射在 `config/workspaces.local.json`，视频关联在 `config/video-links.local.json`。视频工程通过 `data/video-folders.local.json` 索引；旧索引仍可读取，新的工程不再写入公共的 `projects/video`。所有个人记录和生成文件均被 Git 忽略。
 
 跨设备迁移时需备份工程、媒体和本机记录，并修复其中的绝对路径；这项功能不自动重写任意 SVP / Song / 视频的媒体引用。仓库不附带 MSST 引擎、模型、歌曲或付费软件。
+
+工程列表排序、歌词下载与历史目录迁移见 [工程文件管理](ProjectLibrary.md)。

@@ -42,9 +42,21 @@ def stamp(value):
     return number(value, 0, 86400, '时间')
 
 
+def mapping_file():
+    return ROOT/'data/video-folders.local.json' if BASE==ROOT/'projects/video' else BASE/'.folders.json'
+
+
+def mappings():
+    legacy=BASE/'.folders.json'
+    result=read_json(legacy) if legacy.exists() else {}
+    current=mapping_file()
+    if current.exists():result.update(read_json(current))
+    return result
+
+
 def folder(ident):
     component(ident, '视频工程名')
-    mapping = read_json(BASE / '.folders.json') if (BASE / '.folders.json').exists() else {}
+    mapping = mappings()
     p = Path(mapping.get(ident, BASE / ident)).resolve()
     if p.name != ident or not (p / 'project.json').is_file():
         raise ValueError('视频工程不存在')
@@ -70,14 +82,19 @@ def load(ident):
 
 
 def listing():
-    if not BASE.exists(): return []
     items = []
-    mapping = read_json(BASE / '.folders.json') if (BASE / '.folders.json').exists() else {}
+    mapping = mappings()
     paths = set(BASE.glob('*/project.json')) | {Path(p) / 'project.json' for p in mapping.values()}
     for path in paths:
         try:
             p = read_json(path)
-            items.append({k: p[k] for k in ['id', 'name', 'revision', 'updated']})
+            created=p.get('created')
+            if not created:
+                history=sorted((path.parent/'History').glob('*.json'))
+                try:first=read_json(history[0]) if history else p
+                except (ValueError,OSError):first=p
+                created=first.get('created') or first.get('updated') or datetime.fromtimestamp(path.stat().st_ctime).isoformat(timespec='seconds')
+            items.append({**{k: p[k] for k in ['id', 'name', 'revision', 'updated']},'created':created})
         except (OSError, ValueError, KeyError): continue
     return sorted(items, key=lambda p: p['updated'], reverse=True)
 
@@ -184,8 +201,7 @@ def create(body, internal=None, directory=None):
         doc.update(copy.deepcopy(internal))
         validate(doc)
     with LOCK:
-        BASE.mkdir(parents=True, exist_ok=True)
-        parent = Path(directory) if directory else BASE
+        parent = Path(directory) if directory else ROOT/'projects'/name/'video' if BASE==ROOT/'projects/video' else BASE
         parent.mkdir(parents=True, exist_ok=True)
         known = {p['id'] for p in listing()}
         dest = parent / name
@@ -193,12 +209,13 @@ def create(body, internal=None, directory=None):
         while dest.exists() or dest.name in known: dest = parent / component(name + f'_v{version}', '视频工程名'); version += 1
         dest.mkdir()
         for child in ['Sources', 'History', 'Jobs', 'Exports']: (dest / child).mkdir()
-        doc.update(id=dest.name, revision=1, updated=datetime.now().isoformat(timespec='seconds'))
+        now=datetime.now().isoformat(timespec='seconds')
+        doc.update(id=dest.name, revision=1, created=now, updated=now)
         save_json(dest / 'project.json', doc)
-        if directory:
-            mapping = read_json(BASE / '.folders.json') if (BASE / '.folders.json').exists() else {}
+        if directory or BASE==ROOT/'projects/video':
+            mapping = mappings()
             mapping[doc['id']] = str(dest)
-            save_json(BASE / '.folders.json', mapping)
+            save_json(mapping_file(), mapping)
     return doc
 
 

@@ -60,7 +60,7 @@ def local(value,suffixes):
     return p.resolve()
 
 def output_options():
-    return [{'id':'workbench','name':'CoverWorkbench · 工作台工程','path':str(BASE)},
+    return [{'id':'workbench','name':'CoverWorkbench · 歌曲项目目录','path':str(ROOT/'projects')},
             {'id':'songs','name':'Studio One · Songs','path':settings.load()['songsDirectory'] or str(Path.home()/'Documents/Studio One/Songs')}]
 
 def output_base(value):
@@ -339,6 +339,8 @@ def _build(body):
     stamp=slug+'_'+time.strftime('%Y%m%d_%H%M%S')+'_'+uuid.uuid4().hex[:6]
     folder_name=slug if naming=='plain' else stamp.rsplit('_',1)[0] if naming=='timestamp' else stamp
     base=workspaces.outputs(music_project)/'studio-one' if music_project and body.get('useProjectDirectory') is True else output_base(body.get('outputDir'))
+    if base==ROOT/'projects' or (base==BASE and BASE==ROOT/'projects/studio-one'):
+        base=(workspaces.outputs(music_project) if music_project else ROOT/'projects'/slug)/'studio-one'
     dest=base/component(folder_name, '项目目录名')
     if conflict_action=='version':
         version=2

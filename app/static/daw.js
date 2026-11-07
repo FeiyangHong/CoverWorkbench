@@ -72,7 +72,9 @@ function initDawOutput(){
  updateDawOutput();
 }
 function updateDawOutput(){
- const folder=dawCleanPath($('#dawOutputDir').value),name=$('#dawName').value.trim()||'my_song_mix';
+ let folder=dawCleanPath($('#dawOutputDir').value);const name=$('#dawName').value.trim()||'my_song_mix';
+ const managed=dawInfo?.outputOptions.find(p=>p.id==='workbench')?.path,ws=window.CWProjectWorkspace?.();
+ if(managed&&[managed,managed+'\\studio-one'].some(p=>p.replaceAll('/','\\').toLowerCase()===folder.replaceAll('/','\\').toLowerCase()))folder=(ws?.musicId===dawMusicId?ws.root:managed+'\\'+name)+'\\studio-one';
  const naming=$('#dawFolderNaming').value,suffix={plain:'',timestamp:'_日期时间',unique:'_日期时间_标识'}[naming];
  $('#dawOutputPreview').textContent=folder?`新建于 ${folder.replace(/[\\/]+$/,'')}\\${name}${suffix}\\`:'请选择输出父文件夹。';
  if(dawOutputReady)try{localStorage.setItem('cw.daw.output',JSON.stringify({preset:$('#dawOutputPreset').value,path:folder,naming}))}catch{}

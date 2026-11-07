@@ -12,6 +12,7 @@ import sv_starter
 import video_filmstrip
 import video_edit
 import video_preview
+import project_library
 live.prepare_manifest()
 
 PORT=int(os.environ.get("COVERWORKBENCH_PORT", "8765"))
@@ -121,6 +122,7 @@ class Handler(BaseHTTPRequestHandler):
             if parts[:2]==['api','mix-job'] and len(parts)==3:return self.respond(native_audio.job(parts[2]))
             if parts[0]=='mix-audio' and len(parts)==3:return self.file(native_audio.media(parts[1],parts[2]))
             if path=='/api/projects':return self.respond(read_json(ROOT/'config/projects.json'))
+            if parts[:2]==['api','project-library'] and len(parts)==3:return self.respond(project_library.state(parts[2]))
             if parts[:2]==['api','music-video'] and len(parts)==3:return self.respond(video_links.overview(parts[2]))
             if parts==['api','separation']:return self.respond(separation.status())
             if parts==['api','separation-capabilities']:return self.respond(separation_jobs.capabilities())
@@ -170,6 +172,7 @@ class Handler(BaseHTTPRequestHandler):
             body=json.loads(self.rfile.read(size));parts=unquote(urlsplit(self.path).path).strip('/').split('/')
             if len(parts)!=3 or parts[0]!='api':return self.respond({'error':'Route not found'},404)
             action,pid=parts[1:]
+            if action=='project-library':return self.respond(project_library.save(pid,body))
             if action=='project-assets':return self.respond(project_assets.save(pid,body))
             if action=='project-asset-open':return self.respond(project_assets.open_asset(pid,body))
             if action=='separation-launch':return self.respond(separation.launch())
