@@ -26,6 +26,9 @@ def main():
     for name in names:
         dest=target/name;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(ROOT/name,dest)
     notices=target/'Third Party Notices';notices.mkdir(exist_ok=True);packages=[]
+    python_license=Path(sys.base_prefix)/'LICENSE.txt'
+    if not python_license.is_file():raise ValueError('CPython runtime license is missing; portable distribution was not created')
+    shutil.copy2(python_license,notices/'Python-LICENSE.txt')
     excluded={'pykakasi','pedalboard','soundfile','jaconv','deprecated','wrapt'}
     for distribution in importlib.metadata.distributions():
         name=distribution.metadata.get('Name','unknown')
