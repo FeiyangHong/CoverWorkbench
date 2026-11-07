@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FILE = ROOT / 'config/settings.local.json'
 LOCK = threading.RLock()
 DEFAULTS = {
-    'ffmpeg': '', 'ffprobe': '', 'studioOne': '',
+    'ffmpeg': '', 'ffprobe': '', 'studioOne': '', 'sv1': '', 'sv2': '',
     'songsDirectory': str(Path.home() / 'Documents/Studio One/Songs'),
     'lyricCache': str(Path(os.environ.get('APPDATA', str(Path.home() / '.config'))) / 'MusicLyricApp/cache'),
     'msstUrl': 'http://127.0.0.1:7860', 'msstLauncher': '', 'msstDirectory': '', 'msstPython': '',
@@ -53,7 +53,7 @@ def save(body):
             raise ValueError('请选择本机已安装的 MSST 启动程序')
         if value and not Path(value).is_absolute():
             raise ValueError('Use an absolute path, or leave the field empty for automatic detection')
-        if value and key in ['ffmpeg', 'ffprobe', 'studioOne', 'msstPython']:
+        if value and key in ['ffmpeg', 'ffprobe', 'studioOne', 'sv1', 'sv2', 'msstPython']:
             if not Path(value).is_file() or (os.name == 'nt' and Path(value).suffix.lower() != '.exe'):
                 raise ValueError('Select an existing executable: ' + key)
         if value and key == 'msstLauncher' and (not Path(value).is_file() or Path(value).suffix.lower() not in {'.exe', '.lnk'}):
@@ -85,5 +85,5 @@ def executable(name, required=True):
 
 def status():
     return {'settings': load(), 'root': str(ROOT), 'python': sys.version.split()[0],
-            'platform': sys.platform, 'tools': {k: executable(k, False) for k in ['ffmpeg', 'ffprobe', 'studioOne']},
+            'platform': sys.platform, 'tools': {k: executable(k, False) for k in ['ffmpeg', 'ffprobe', 'studioOne', 'sv1', 'sv2']},
             'romajiAvailable': importlib.util.find_spec('pykakasi') is not None}

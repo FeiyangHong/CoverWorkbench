@@ -1,6 +1,7 @@
 """Explicit per-song handoff files. Opening or registering never edits creative files."""
 from pathlib import Path
 import os
+import subprocess
 import threading
 
 from core import ROOT, read_json, save_json
@@ -8,6 +9,7 @@ import daw
 import workspaces
 import asset_storage
 import mix_sources
+import settings
 
 STORE = ROOT / 'config/project-assets.local.json'
 LOCK = threading.RLock()
@@ -131,6 +133,18 @@ def open_asset(ident, body):
     if key == 'song':
         return daw.open_local({'path': str(path), 'action': 'song'})
     if os.name != 'nt':
-        raise ValueError('本机打开 SV 工程需要 Windows 文件关联')
-    os.startfile(str(path))
-    return {'opened': True, 'path': str(path)}
+        raise ValueError('本机打开 SV 工程需要 Windows 及已配置的 SV 程序')
+    raw = read_json(path)
+    version = int(raw.get('version', 0))
+    engine = body.get('engine', 'auto')
+    if engine not in {'auto', 'sv1', 'sv2'}:
+        raise ValueError('请选择 SV1 或 SV2')
+    if engine == 'auto':
+        session_file = path.parent / 'session.json'
+        session = read_json(session_file) if session_file.is_file() else {}
+        engine = session.get('engine') or ('sv2' if version >= 180 else 'sv1')
+    if engine not in {'sv1', 'sv2'} or (engine == 'sv1' and version >= 180):
+        raise ValueError('此工程格式不能交给 SV1；请检查 SV 版本及 Session 登记')
+    exe = settings.executable(engine)
+    subprocess.Popen([exe, str(path)])
+    return {'opened': True, 'path': str(path), 'engine': engine}

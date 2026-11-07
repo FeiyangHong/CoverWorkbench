@@ -2,6 +2,7 @@
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest.mock import patch
+from types import SimpleNamespace
 import json
 import sys
 import tempfile
@@ -60,6 +61,26 @@ def main():
         assert assets.status('demo')['assets']['mix']['path'] == str(paths['final.wav'])
         assert assets.STORE.with_name('project-assets.local.previous.json').exists()
         assert all(sha(p) == h for p, h in hashes.items())
+        sv1 = root / 'SV1 editor.exe'; sv2 = root / 'SV2 editor.exe'
+        sv1.write_bytes(b'not executed'); sv2.write_bytes(b'not executed')
+        settings.save({'sv1': str(sv1), 'sv2': str(sv2)})
+        native = root / 'Unicode Session 日本語' / 'Working draft.svp'
+        save_json(native, {'version': 153, 'tracks': []})
+        selected = {'assets': {'svp': {'exists': True, 'path': str(native)}}}
+        with patch.object(assets, 'status', return_value=selected), patch.object(assets, 'os', SimpleNamespace(name='nt')), patch.object(assets.subprocess, 'Popen') as launch:
+            result = assets.open_asset('demo', {'asset': 'svp', 'action': 'open'})
+            assert result['engine'] == 'sv1'
+            assert launch.call_args.args[0] == [str(sv1.resolve()), str(native.resolve())]
+            save_json(native.parent / 'session.json', {'engine': 'sv2'})
+            assert assets.open_asset('demo', {'asset': 'svp', 'action': 'open'})['engine'] == 'sv2'
+            assert launch.call_args.args[0][0] == str(sv2.resolve())
+            save_json(native, {'version': 196, 'tracks': []})
+            save_json(native.parent / 'session.json', {'engine': 'sv1'})
+            rejects(lambda: assets.open_asset('demo', {'asset': 'svp', 'action': 'open'}), '不能交给 SV1')
+            assert assets.open_asset('demo', {'asset': 'svp', 'action': 'open', 'engine': 'sv2'})['engine'] == 'sv2'
+            settings.save({'sv2': ''})
+            rejects(lambda: assets.open_asset('demo', {'asset': 'svp', 'action': 'open', 'engine': 'sv2'}), 'not configured')
+            assert launch.call_count == 3, 'Missing or incompatible engines must never fall back to the file association'
         rejects(lambda: assets.status('../unknown'), '导入')
         for bad in ['https://127.0.0.1:7860', 'http://example.com', 'http://0.0.0.0', 'http://127.0.0.1@evil.test', 'http://user:pass@localhost', 'http://127.0.0.1:99999', 'http://127.0.0.1/?token=a', 'http://127.0.0.1/\\evil']:
             rejects(lambda: separation.local_url(bad), '本机 HTTP')

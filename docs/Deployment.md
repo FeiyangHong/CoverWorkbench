@@ -39,6 +39,8 @@ Repeat `--dest` for SV1 and SV2. Rescan scripts in SV. Do not copy the `.lua` te
 
 ## Studio One templates
 
+Configure the SV1 and SV2 standalone executable paths in **Environment settings** before using **Open SV project**. The workbench selects the Session's recorded engine, or the saved SVP format for imported files, and launches that configured program directly. It does not use the Windows `.svp` association. SV2 files saved in an older compatibility format can be opened with an explicit `engine: "sv2"` API option; the workbench does not convert them or replace their voice banks.
+
 Two sanitized starter mixes, **Studio Vocal Plate** and **Studio Vocal Delay**, are available immediately in the Studio One builder. Install your own licensed SV1 and FabFilter Pro-Q 3, Pro-C 2, Pro-DS, Pro-R 2 and Timeless 3. The presets contain parameter state and routing, not plugin binaries, voice banks or media. SV2 still requires your own locally captured host state. See the [starter template guide](../assets/studio-one/README.md).
 
 You can also register your **own local `.song`** in Environment settings. Current support is deliberately restricted to the layout already exercised by the builder:
