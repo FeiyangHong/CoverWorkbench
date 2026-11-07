@@ -101,6 +101,8 @@ def main():
             assert Path(exported['folder']).name=='Export 002'  # Cancelled version 001 remains reserved.
             assert jobs.media(doc['id'],exported['id'],'video.mp4').name=='My Cover Video - v002.mp4'
             assert exported['result']['loudness']['input_tp']<0
+            assert exported['result']['provenance']['subtitleRevision']==doc['revision']
+            assert exported['result']['provenance']['audioFile']==audio.name
             doc.update(audioMode='gain',audioOffset=4)
             doc=project.save(doc['id'],doc)
             silent=wait(jobs.submit(doc['id'],{'kind':'preview','start':0,'end':1}))

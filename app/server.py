@@ -13,6 +13,7 @@ import video_filmstrip
 import video_edit
 import video_preview
 import project_library
+import video_recovery,production_presets,release_versions,project_disk,project_tasks,project_context
 live.prepare_manifest()
 
 PORT=int(os.environ.get("COVERWORKBENCH_PORT", "8765"))
@@ -122,6 +123,15 @@ class Handler(BaseHTTPRequestHandler):
             if parts[:2]==['api','mix-job'] and len(parts)==3:return self.respond(native_audio.job(parts[2]))
             if parts[0]=='mix-audio' and len(parts)==3:return self.file(native_audio.media(parts[1],parts[2]))
             if path=='/api/projects':return self.respond(read_json(ROOT/'config/projects.json'))
+            if path=='/api/production-presets':return self.respond(production_presets.listing())
+            if parts[:2]==['api','video-drafts'] and len(parts)==3:return self.respond(video_recovery.listing(parts[2]))
+            if parts[:2]==['api','project-task'] and len(parts)==3:return self.respond(project_tasks.get(parts[2]))
+            if parts[0]=='project-package' and len(parts)==2:return self.file(project_tasks.media(parts[1]),True)
+            if parts[:2]==['api','project-care'] and len(parts)==3:
+                scope=parse_qs(u.query).get('scope',['music'])[0];context=project_context.get(scope,parts[2])
+                return self.respond({'scope':scope,'id':parts[2],'title':context['title'],'root':str(context['root']),'versions':release_versions.listing(scope,parts[2])})
+            if parts[:2]==['api','video-provenance'] and len(parts)==3:
+                doc=video_project.load(parts[2]);context=release_versions.video_context(parts[2]);return self.respond({'provenance':release_versions.provenance(doc),'scope':context['scope'],'id':context['id'],'versions':release_versions.listing(context['scope'],context['id'])})
             if parts[:2]==['api','project-library'] and len(parts)==3:return self.respond(project_library.state(parts[2]))
             if parts[:2]==['api','music-video'] and len(parts)==3:return self.respond(video_links.overview(parts[2]))
             if parts==['api','separation']:return self.respond(separation.status())
@@ -172,6 +182,18 @@ class Handler(BaseHTTPRequestHandler):
             body=json.loads(self.rfile.read(size));parts=unquote(urlsplit(self.path).path).strip('/').split('/')
             if len(parts)!=3 or parts[0]!='api':return self.respond({'error':'Route not found'},404)
             action,pid=parts[1:]
+            if action=='production-presets':return self.respond(production_presets.save(body))
+            if action=='video-drafts':return self.respond(video_recovery.recover_copy(pid,body) if body.get('action')=='copy' else video_recovery.update(pid,body))
+            if action=='project-task-cancel':return self.respond(project_tasks.cancel(pid))
+            if action=='project-care':
+                scope=body.get('scope','music');verb=body.get('action')
+                if verb in ('pack','import'):return self.respond(project_tasks.submit(scope,pid,body),202)
+                if verb=='register-version':return self.respond(release_versions.register(scope,pid,body))
+                if verb=='stage-version':return self.respond(release_versions.stage(scope,pid,body))
+                if verb=='disk-scan':return self.respond(project_disk.scan(scope,pid))
+                if verb=='disk-archive':return self.respond(project_disk.archive(scope,pid,body))
+                if verb in ('restore','purge'):return self.respond(project_disk.manage(scope,pid,body))
+                raise ValueError('未知工程管理操作')
             if action=='project-library':return self.respond(project_library.save(pid,body))
             if action=='project-assets':return self.respond(project_assets.save(pid,body))
             if action=='project-asset-open':return self.respond(project_assets.open_asset(pid,body))
@@ -306,6 +328,7 @@ if __name__=='__main__':
             native_audio.POOL.shutdown(wait=True)
             separation_jobs.POOL.shutdown(wait=True)
             video_jobs.POOL.shutdown(wait=True)
+            project_tasks.POOL.shutdown(wait=True)
             pidfile=ROOT/'runtime/server.pid'
             if pidfile.is_file() and pidfile.read_text().strip()==str(os.getpid()):
                 pidfile.unlink()

@@ -124,10 +124,12 @@ def main():
                 subprocess.run(['node', str(ROOT / 'tests/mix-handoff-ui.cjs'), base], check=True, cwd=ROOT)
                 subprocess.run(['node', str(ROOT / 'tests/output-audio-ui.cjs'), base], check=True, cwd=ROOT)
                 subprocess.run(['node', str(ROOT / 'tests/project-library-ui.cjs'), base], check=True, cwd=ROOT)
+                subprocess.run(['node', str(ROOT / 'tests/project-safety-ui.cjs'), base], check=True, cwd=ROOT)
                 subprocess.run(['node', str(ROOT / 'tests/lifecycle-ui.cjs'), base], check=True, cwd=ROOT)
             else:
                 assert request('/api/shutdown/local', {'confirm': True, 'instance': service['instance']})['state'] == 'stopping'
-            assert process.wait(timeout=15) == 0, 'Web exit must terminate the actual server process'
+            exit_code=process.wait(timeout=15)
+            assert exit_code == 0, f'Web exit returned {exit_code}: ' + (dest / 'logs/test-server.log').read_text(encoding='utf-8')[-12000:]
             with socket.socket() as listener:
                 listener.bind(('127.0.0.1', port))
             print('PASS: clean process exit and released localhost port')

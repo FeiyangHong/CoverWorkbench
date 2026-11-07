@@ -36,6 +36,7 @@ jobs:
           python tests/video-tracks.py
           python tests/video-output-audio.py
           python tests/project-organization.py
+          python tests/project-safety.py
           python tests/video-preview.py
           python tests/video-transitions.py
           python tests/video-storage.py

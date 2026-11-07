@@ -33,6 +33,7 @@ CoverWorkbench handles repeatable preparation and delivery tasks while detailed 
 | Mixing reference | Find controls by sound goal, with clear control maps, cropped references and reverb/delay/EQ A/B demos | Audition and adjust in Studio One |
 | Video production | [Link each song to its video, carry over its final mix and saved bilingual captions, preview and export independent versions](docs/VideoStudio.md) | Timing, translation and final visual checks |
 | Checks and delivery | Use local FFmpeg for audio checks, delivery packages and video audio replacement | Final listening, visuals and publication |
+| Project protection and reuse | [Separate autosaved drafts, portable project packages, release snapshots, reversible cache cleanup and caption/output presets](docs/ProjectCare.md) | Recovery choices, release stages and permanent cleanup confirmation |
 
 ## Preview
 

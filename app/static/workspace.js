@@ -40,6 +40,10 @@ function activate(tab,write=true){
  if(write&&!restoring)route(tab,active?pendingProject||metadata?.id:null);
 }
 window.CWVideoHost={
+ pause(){editor?.pause();},
+ useMix(path){if(!editor)throw Error('视频编辑器尚未就绪');editor.useMix(path);},
+ notifyVersions(){editor?.notifyVersions();},
+ async saveCurrent(){if(editor?.state().dirty)await editor.save();},
  update:publish,
  state:()=>metadata,
  async prepare(id){if(editor?.state().id===id&&editor.state().dirty)await editor.save();},

@@ -360,6 +360,8 @@ def render(j):
                 output=output_info,loudness=loudness,warnings=warnings,start=start,end=end,
                 subtitleClock='video seconds; subtitleShift applied once',audioOffset=0 if source_original else doc['audioOffset'],audioSource=doc.get('audioSource','mix'),sourceAudioPlan=audio_details,
                 audioMode='original-level' if source_original else doc['audioMode'],measured=measured,limitations='Decode, duration, hash and loudness checks; final listening/translation review remains manual.')
+    import release_versions
+    report['provenance']=release_versions.provenance(doc,before)
     check(j); partial.rename(output)
     report['sha256']=sha(output)
     save_json(folder/'report.json',report)
