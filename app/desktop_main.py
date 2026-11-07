@@ -2,6 +2,18 @@
 from pathlib import Path
 import argparse,json,os,runpy,socket,subprocess,sys,threading,time,urllib.request,urllib.error,webbrowser
 
+def attach_child_streams():
+    """Windowed builds still need redirected stdout for yt-dlp's JSON protocol."""
+    if os.name!='nt':return
+    import ctypes,msvcrt
+    kernel=ctypes.windll.kernel32;kernel.GetStdHandle.restype=ctypes.c_void_p;streams={}
+    for name,code in [('stdout',-11),('stderr',-12)]:
+        if getattr(sys,name) is not None:continue
+        handle=kernel.GetStdHandle(code)
+        if not handle or handle==ctypes.c_void_p(-1).value:raise RuntimeError('The desktop worker requires redirected output handles')
+        if handle not in streams:streams[handle]=os.fdopen(msvcrt.open_osfhandle(handle,os.O_WRONLY|os.O_BINARY),'w',encoding='utf-8',errors='replace',buffering=1)
+        setattr(sys,name,streams[handle])
+
 def request(base,path,body=None,timeout=3):
     data=None if body is None else json.dumps(body).encode()
     req=urllib.request.Request(base+path,data=data,headers={'Content-Type':'application/json'} if data else {})
@@ -92,6 +104,7 @@ def smoke(window,bridge,path):
 
 def main():
     if '--module' in sys.argv:
+        attach_child_streams()
         index=sys.argv.index('--module');name=sys.argv[index+1]
         if name!='yt_dlp':raise ValueError('Unknown module')
         sys.argv=[name,*sys.argv[index+2:]];runpy.run_module(name,run_name='__main__');return

@@ -8,6 +8,8 @@ def request(base,path,body=None):
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--exe',default=str(ROOT/'dist/desktop/CoverWorkbench/CoverWorkbench.exe'));parser.add_argument('--backend-only',action='store_true');args=parser.parse_args();exe=Path(args.exe).resolve();assert exe.is_file()
+    version=subprocess.run([str(exe),'--module','yt_dlp','--version'],capture_output=True,timeout=20,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+    assert version.returncode==0 and version.stdout.strip(),('Frozen download helper did not return CLI output',version.stderr.decode('utf-8',errors='replace'))
     (ROOT/'work').mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='Desktop Smoke ',dir=ROOT/'work') as td:
         root=Path(td)
