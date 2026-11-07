@@ -384,7 +384,8 @@ def download(j):
     staging=root/'Cache/Downloads'/j['id']
     if not staging.resolve().is_relative_to(root):raise ValueError('下载缓存目录指向工程外部')
     staging.mkdir(parents=True,exist_ok=True)
-    command_start=[shutil.which('yt-dlp')] if shutil.which('yt-dlp') else [sys.executable,'-m','yt_dlp']
+    from runtime_paths import module
+    command_start=[shutil.which('yt-dlp')] if shutil.which('yt-dlp') else module('yt_dlp')
     args=command_start+['--ignore-config','--no-playlist','--no-overwrites','--no-mtime','--newline','--write-info-json',
           '--socket-timeout','20','--retries','2','--ffmpeg-location',str(Path(settings.executable('ffmpeg')).parent),
           '-f',f"bv*[height<={spec['height']}]+ba/b[height<={spec['height']}]",'--merge-output-format','mkv',
@@ -449,8 +450,11 @@ def publish_download(j,source,directory,title):
 def run(j):
     try:
         with lifecycle.operation('视频下载或渲染'):
-            check(j);update(j,status='running',stage='准备输入')
-            (download if j['kind']=='download' else render)(j)
+            import task_resources
+            from contextlib import nullcontext
+            with (nullcontext() if j['kind']=='download' else task_resources.claim(lambda:check(j),lambda:update(j,stage='等待计算资源'))):
+                check(j);update(j,status='running',stage='准备输入')
+                (download if j['kind']=='download' else render)(j)
             check(j);update(j,status='completed',progress=100,stage='完成')
     except Cancelled: update(j,status='cancelled',stage='已取消',message='任务已停止，原素材和已完成版本保留。')
     except Exception as e: update(j,status='failed',stage='失败',message=str(e))

@@ -4,6 +4,7 @@ import json
 import os
 import sys
 import threading
+import hashlib
 
 
 def watch_parent(pid):
@@ -35,8 +36,9 @@ def run(request):
     # MSST model YAMLs use tuple literals for dimensions; permit only that inert tag.
     ModelConfigLoader.add_constructor('tag:yaml.org,2002:python/tuple',
                                      lambda loader, node: tuple(loader.construct_sequence(node)))
-    results = {}
-    for step in request['steps']:
+    results = dict(request.get('initialResults',{}))
+    for index,step in enumerate(request['steps']):
+        if index<request.get('completedSteps',0):continue
         with open(step['config'], encoding='utf-8') as stream:
             instruments = yaml.load(stream, Loader=ModelConfigLoader)['training']['instruments']
         if set(instruments) != set(step['stems']):
@@ -62,6 +64,13 @@ def run(request):
                         raise RuntimeError('Output name already exists: ' + label)
                     output.rename(named)
                 results[role] = str(named)
+            def digest(path):
+                h=hashlib.sha256()
+                with Path(path).open('rb') as f:
+                    while block:=f.read(1024*1024):h.update(block)
+                return h.hexdigest()
+            checkpoint={'completedSteps':index+1,'inputSHA256':request.get('inputSHA256'),'models':request.get('modelStamps'),'outputs':{k:{'path':v,'sha256':digest(v)} for k,v in results.items()}}
+            target=Path(request['result']).with_name('Checkpoint.json');temporary=target.with_suffix('.tmp');temporary.write_text(json.dumps(checkpoint),encoding='utf-8');os.replace(temporary,target)
         finally:
             separator.del_cache()
             del separator

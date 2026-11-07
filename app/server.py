@@ -14,6 +14,7 @@ import video_edit
 import video_preview
 import project_library
 import video_recovery,production_presets,release_versions,project_disk,project_tasks,project_context
+import task_center,publish_checks,asset_impact,deployment_tools
 live.prepare_manifest()
 
 PORT=int(os.environ.get("COVERWORKBENCH_PORT", "8765"))
@@ -123,6 +124,11 @@ class Handler(BaseHTTPRequestHandler):
             if parts[:2]==['api','mix-job'] and len(parts)==3:return self.respond(native_audio.job(parts[2]))
             if parts[0]=='mix-audio' and len(parts)==3:return self.file(native_audio.media(parts[1],parts[2]))
             if path=='/api/projects':return self.respond(read_json(ROOT/'config/projects.json'))
+            if path=='/api/task-center':return self.respond({'jobs':task_center.all_jobs()})
+            if parts[:2]==['api','studio-task'] and len(parts)==3:return self.respond(task_center.own(parts[2]))
+            if parts[0]=='task-diagnostic' and len(parts)==2:return self.file(task_center.report_file(parts[1]),True)
+            if parts[:2]==['api','publish-checks'] and len(parts)==3:return self.respond(publish_checks.latest(parts[2]))
+            if path=='/api/deployment':return self.respond({'updates':[{'name':u['name'],'created':u['created'],'status':u['status'],'fileCount':len(u['files'])} for u in deployment_tools.updates()],'packaged':bool(getattr(sys,'frozen',False))})
             if path=='/api/production-presets':return self.respond(production_presets.listing())
             if parts[:2]==['api','video-drafts'] and len(parts)==3:return self.respond(video_recovery.listing(parts[2]))
             if parts[:2]==['api','project-task'] and len(parts)==3:return self.respond(project_tasks.get(parts[2]))
@@ -182,6 +188,11 @@ class Handler(BaseHTTPRequestHandler):
             body=json.loads(self.rfile.read(size));parts=unquote(urlsplit(self.path).path).strip('/').split('/')
             if len(parts)!=3 or parts[0]!='api':return self.respond({'error':'Route not found'},404)
             action,pid=parts[1:]
+            if action=='task-action':return self.respond(task_center.action(pid,body))
+            if action=='studio-tools':return self.respond(task_center.submit(body),202)
+            if action=='asset-impact':return self.respond(asset_impact.scan_video(pid) if body.get('scope')=='video' else asset_impact.scan_music(pid,body.get('record') is True,body.get('expected')))
+            if action=='deployment-update':return self.respond(deployment_tools.apply(body))
+            if action=='deployment-rollback':return self.respond(deployment_tools.rollback(body))
             if action=='production-presets':return self.respond(production_presets.save(body))
             if action=='video-drafts':return self.respond(video_recovery.recover_copy(pid,body) if body.get('action')=='copy' else video_recovery.update(pid,body))
             if action=='project-task-cancel':return self.respond(project_tasks.cancel(pid))
@@ -329,6 +340,7 @@ if __name__=='__main__':
             separation_jobs.POOL.shutdown(wait=True)
             video_jobs.POOL.shutdown(wait=True)
             project_tasks.POOL.shutdown(wait=True)
+            task_center.POOL.shutdown(wait=True)
             pidfile=ROOT/'runtime/server.pid'
             if pidfile.is_file() and pidfile.read_text().strip()==str(os.getpid()):
                 pidfile.unlink()

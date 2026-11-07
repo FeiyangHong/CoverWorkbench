@@ -34,6 +34,7 @@ CoverWorkbench handles repeatable preparation and delivery tasks while detailed 
 | Video production | [Link each song to its video, carry over its final mix and saved bilingual captions, preview and export independent versions](docs/VideoStudio.md) | Timing, translation and final visual checks |
 | Checks and delivery | Use local FFmpeg for audio checks, delivery packages and video audio replacement | Final listening, visuals and publication |
 | Project protection and reuse | [Separate autosaved drafts, portable project packages, release snapshots, reversible cache cleanup and caption/output presets](docs/ProjectCare.md) | Recovery choices, release stages and permanent cleanup confirmation |
+| Production assistant | [Unified tasks, actionable delivery checks, source-change impact, redacted diagnostics and source-update rollback](docs/ProductionAssistant.md) | Review warnings, select updated inputs and confirm retries |
 
 ## Preview
 
@@ -67,6 +68,8 @@ Already have a finished SVP? Start with the Studio One builder; there is no need
 ## Quick start
 
 Native integrations target **Windows** and require **Python 3.11+**.
+
+A [Windows desktop window and portable EXE build](docs/Desktop.md) share the same workspace and local service as the browser. The portable core includes its Python runtime; native software, optional engines and WebView2 requirements are documented in the desktop guide.
 
 ```powershell
 git clone https://github.com/FeiyangHong/CoverWorkbench.git

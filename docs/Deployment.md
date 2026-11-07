@@ -1,5 +1,7 @@
 # Deployment / 部署指南
 
+For the Windows desktop window, portable EXE build, shared-workspace behavior and close options, see [Desktop](Desktop.md). Task monitoring, diagnostics and reversible source updates are described in [Production Assistant](ProductionAssistant.md).
+
 ## Windows quick start
 
 Install **Python 3.11+** from [python.org](https://www.python.org/downloads/windows/), with the Python launcher or `python` on PATH. Extract or clone into a writable local directory. Spaces in the checkout path are supported. Administrator access, Codex, MSST and Node.js are not required for ordinary use.

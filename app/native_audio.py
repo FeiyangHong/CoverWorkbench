@@ -19,6 +19,7 @@ CACHE = ROOT / 'runtime/mix-auditions'
 POOL = ThreadPoolExecutor(max_workers=1, thread_name_prefix='mix-audition')
 LOCK = threading.Lock()
 JOBS = {}
+CANCELLED=set()
 PLUGINS = {'reverb': 'FabFilter Pro-R 2', 'delay': 'FabFilter Timeless 3', 'eq': 'FabFilter Pro-Q 3'}
 CONTROLS = {
     'reverb': [('space', 'Space · 空间时间', .3, 3.5, 1.2, .1, 's'),
@@ -135,6 +136,7 @@ def _submit(spec, prepare=None):
             prepare(folder)
         (folder / 'request.json').write_text(json.dumps(spec, ensure_ascii=False), encoding='utf-8')
         JOBS[jid] = {'id': jid, 'status': 'queued', 'created': time.time()}
+        (folder/'Job.json').write_text(json.dumps(JOBS[jid]),encoding='utf-8')
         POOL.submit(render, jid, folder)
         return dict(JOBS[jid])
 
@@ -149,8 +151,21 @@ def _render(jid, folder):
         JOBS[jid]['status'] = 'running'
     try:
         script = 'song_mix_worker.py' if spec_mode(folder).startswith('song') else 'native_audio_worker.py'
-        result = subprocess.run([sys.executable, str(ROOT / ('app/' + script)), str(folder)],
-                                capture_output=True, timeout=240, **hidden())
+        import task_resources
+        from runtime_paths import worker
+        def check():
+            if jid in CANCELLED:raise InterruptedError('试听任务已取消')
+        with task_resources.claim(check):
+            check();process=subprocess.Popen(worker(script,folder),stdout=subprocess.PIPE,stderr=subprocess.PIPE,**hidden());deadline=time.monotonic()+240
+            try:
+                while True:
+                    check()
+                    if time.monotonic()>deadline:raise subprocess.TimeoutExpired(script,240)
+                    try:out,err=process.communicate(timeout=.2);break
+                    except subprocess.TimeoutExpired:continue
+                result=subprocess.CompletedProcess(process.args,process.returncode,out,err)
+            finally:
+                if process.poll() is None:process.kill();process.communicate()
         (folder / 'worker.log').write_bytes(result.stdout + result.stderr)
         if result.returncode:
             if (folder / 'error.json').is_file():
@@ -162,7 +177,14 @@ def _render(jid, folder):
             JOBS[jid].update(status='ready', result={**data, **urls})
     except Exception as error:
         with LOCK:
-            JOBS[jid].update(status='error', error='插件渲染超时，工作台仍可使用。' if isinstance(error, subprocess.TimeoutExpired) else str(error))
+            JOBS[jid].update(status='cancelled' if isinstance(error,InterruptedError) else 'error', error='插件渲染超时，工作台仍可使用。' if isinstance(error, subprocess.TimeoutExpired) else str(error))
+    finally:
+        (folder/'Job.json').write_text(json.dumps(job(jid),ensure_ascii=False),encoding='utf-8')
+
+def cancel(ident):
+    with LOCK:
+        if ident not in JOBS:raise ValueError('本次会话中未找到试听任务')
+        CANCELLED.add(ident);return dict(JOBS[ident])
 
 
 def job(jid):

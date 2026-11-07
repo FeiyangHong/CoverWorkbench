@@ -102,7 +102,8 @@ def browse(body):
     if folders_first:entries.sort(key=lambda f:not f['directory'])
     return {'path':str(p),'parent':str(p.parent) if p.parent!=p else None,
             'roots':[f'{c}:\\' for c in 'CDEFGHIJKLMNOPQRSTUVWXYZ' if Path(f'{c}:/').is_dir()],
-            'entries':entries[:1500],'truncated':len(entries)>1500,'sort':sort,'foldersFirst':bool(folders_first)}
+            'entries':entries[:1500],'truncated':len(entries)>1500,'sort':sort,'foldersFirst':bool(folders_first),
+            'selected':str(candidate.resolve()) if candidate.is_file() and candidate.suffix.lower() in extensions and kind!='folder' else None}
 
 def project_source(value):
     path=local(value,{'.svp','.song'})

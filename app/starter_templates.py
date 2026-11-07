@@ -8,7 +8,7 @@ import threading
 import zipfile
 from mix_bundle import validate
 
-ROOT = Path(__file__).resolve().parents[1]
+from runtime_paths import ROOT
 ASSETS = ROOT / 'assets/studio-one'
 LOCK = threading.RLock()
 PLACEHOLDER = b'file:///C:/CoverWorkbench/Template/'

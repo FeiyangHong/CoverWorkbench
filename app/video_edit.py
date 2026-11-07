@@ -7,6 +7,7 @@ import re
 import shutil
 import subprocess
 import threading
+import time
 import uuid
 
 from core import read_json, save_json, sha
@@ -19,7 +20,19 @@ LOCK = threading.RLock()
 EXTENSIONS = project.MEDIA | {'.png', '.jpg', '.jpeg', '.webp'}
 
 
-def command(args, timeout=120):
+def command(args, timeout=120, check=None):
+    if check is not None:
+        process=subprocess.Popen(list(map(str,args)),stdout=subprocess.PIPE,stderr=subprocess.PIPE,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0));deadline=time.monotonic()+timeout
+        try:
+            while True:
+                check()
+                if time.monotonic()>deadline:raise ValueError('媒体处理超时')
+                try:out,err=process.communicate(timeout=.2);break
+                except subprocess.TimeoutExpired:continue
+            if process.returncode:raise ValueError('媒体处理失败：'+err.decode('utf-8',errors='replace')[-700:])
+            return out
+        finally:
+            if process.poll() is None:process.kill();process.communicate()
     result = subprocess.run(list(map(str, args)), capture_output=True, timeout=timeout,
                             creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     if result.returncode:
@@ -101,7 +114,7 @@ def media(ident, key, kind):
     return Path(item[field])
 
 
-def proxy(ident, body):
+def proxy(ident, body, check=None):
     with LOCK:
         item = asset(ident, body.get('asset'))
         if not item or item['kind'] != 'video':
@@ -113,7 +126,8 @@ def proxy(ident, body):
             command([settings.executable('ffmpeg'), '-v', 'error', '-nostdin', '-i', item['path'], '-map', '0:v:0', '-map', '0:a:0?',
                      '-vf', 'scale=960:540:force_original_aspect_ratio=decrease:force_divisible_by=2,setsar=1',
                      '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '24', '-pix_fmt', 'yuv420p',
-                     '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', '-y', partial], timeout=900)
+                       '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', '-y', partial], timeout=900, **({'check':check} if check else {}))
+            if check:check()
             partial.replace(output)
         rows = library(ident)
         for row in rows:

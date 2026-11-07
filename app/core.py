@@ -5,7 +5,7 @@ import os
 import tempfile
 import threading
 
-ROOT = Path(__file__).resolve().parents[1]
+from runtime_paths import ROOT
 DATA = ROOT / 'data'
 BLICK = 705600000
 # Bounded lock storage; readers must close their Windows handles before replace.

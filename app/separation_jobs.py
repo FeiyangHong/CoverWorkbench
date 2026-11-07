@@ -26,6 +26,9 @@ PROFILES = {
     'harmony': ('mel_band_roformer_karaoke_becruily.ckpt', {'Vocals': 'lead', 'Instrumental': 'harmony'}),
 }
 
+def model_stamp(step):
+    return {key:[str(Path(step[key]).resolve()),Path(step[key]).stat().st_size,Path(step[key]).stat().st_mtime_ns] for key in ['model','config']}
+
 
 def installation():
     values = settings.load()
@@ -153,6 +156,16 @@ def submit(ident, body):
             request['steps'].append({**models[model], 'input': '@vocals' if index > 0 and harmony_input == 'vocals' else str(owned),
                                      'stems': stems, 'folders': folders})
         save_json(folder / 'request.json', request)
+        if body.get('resumeFrom') and mode=='pipeline':
+            old=next((j for j in history(ident) if j['id']==body['resumeFrom'] and j['status'] in ('failed','cancelled','interrupted')),None)
+            checkpoint=Path(old['folder'])/'Checkpoint.json' if old else None
+            if checkpoint and checkpoint.is_file():
+                data=read_json(checkpoint);outputs=data.get('outputs',{})
+                if data.get('completedSteps',0)>=1 and data.get('inputSHA256')==sha(source) and data.get('models',[None])[0]==model_stamp(request['steps'][0]) and set(outputs)>={'vocals','accompaniment'}:
+                    for role in ['vocals','accompaniment']:
+                        f=Path(outputs[role]['path'])
+                        if not f.is_file() or not f.resolve().is_relative_to(Path(old['folder']).resolve()) or sha(f)!=outputs[role]['sha256']:raise ValueError('已完成分离步骤的输出已改变，无法复用；请重新分离')
+                    job['resumeOutputs']={r:outputs[r]['path'] for r in ['vocals','accompaniment']};job['resumeHashes']={r:outputs[r]['sha256'] for r in ['vocals','accompaniment']};job['resumedFrom']=old['id']
         JOBS[job['id']] = job
         update(job)
         try:
@@ -164,6 +177,15 @@ def submit(ident, body):
 
 
 def run(job, runtime, install):
+    import task_resources
+    def check():
+        if job['cancel'].is_set():raise InterruptedError('已取消，已有分离结果保留')
+    try:
+        with task_resources.claim(check,lambda:update(job,message='等待计算资源')):
+            return _run(job,runtime,install)
+    except InterruptedError as error:update(job,status='cancelled',message=str(error))
+
+def _run(job, runtime, install):
     process = None
     try:
         update(job, status='running', message='准备输入副本；随后由本机 MSST 模型分离')
@@ -177,6 +199,15 @@ def run(job, runtime, install):
             update(job, status='cancelled', message='已取消；已有素材保持不变')
             return
         folder = Path(job['folder'])
+        request=read_json(folder/'request.json');request['inputSHA256']=before;request['modelStamps']=[model_stamp(s) for s in request['steps']]
+        if job.get('resumeOutputs'):
+            initial={}
+            for role,value in job['resumeOutputs'].items():
+                target=folder/role/({'vocals':'Vocals','accompaniment':'Instrumental'}[role]+'.wav');target.parent.mkdir(exist_ok=True);shutil.copy2(value,target)
+                if sha(target)!=job['resumeHashes'][role] or sha(value)!=job['resumeHashes'][role]:raise ValueError('复用的分离结果在排队期间改变，请重新分离')
+                initial[role]=str(target)
+            request.update(initialResults=initial,completedSteps=1)
+        save_json(folder/'request.json',request)
         with (folder / 'msst.log').open('wb') as log:
             process = subprocess.Popen([str(runtime), str(ROOT / 'integrations/msst/worker.py'), str(folder / 'request.json')],
                                        cwd=install, stdout=log, stderr=subprocess.STDOUT,

@@ -35,6 +35,7 @@ def submit(scope,ident,body):
             while (BASE/f'Task {number:03}').exists():number+=1
             folder=BASE/f'Task {number:03}';folder.mkdir()
             job={'id':uuid.uuid4().hex,'name':folder.name,'scope':scope,'project':ident,'action':body['action'],'status':'queued','stage':'等待处理','progress':0,'created':time.time(),'folder':str(folder),'cancel':threading.Event()}
+            job['request']=copy.deepcopy(body)
             JOBS[job['id']]=job;update(job);POOL.submit(run,job,copy.deepcopy(body))
             return public(job)
 

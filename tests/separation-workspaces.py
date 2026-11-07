@@ -152,6 +152,13 @@ class MSSeparator:
             assert failed['status'] == 'failed', failed
             assert assets.overrides(ident) == baseline, 'Partial stage-one result was registered'
             weights['harmony'].write_text('ok')
+            checkpoint=read_json(Path(failed['folder'])/'Checkpoint.json')
+            assert checkpoint['completedSteps']==1 and set(checkpoint['outputs'])=={'vocals','accompaniment'}
+            resumed=wait(jobs.submit(ident,{'mode':'pipeline','resumeFrom':failed['id']}))
+            assert resumed['status']=='completed' and resumed['resumedFrom']==failed['id'],resumed
+            assert read_json(Path(resumed['folder'])/'request.json')['completedSteps']==1
+            old_vocals=Path(checkpoint['outputs']['vocals']['path']);new_vocals=Path(resumed['outputs']['vocals'])
+            assert sha(old_vocals)==sha(new_vocals) and old_vocals.stat().st_mtime_ns==new_vocals.stat().st_mtime_ns
             weights['song'].write_text('wait')
             conflict = jobs.submit(ident, {'mode': 'song'})
             edited = assets.status(ident)

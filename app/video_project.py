@@ -231,6 +231,8 @@ def save(ident, body, internal=None):
             validate(doc)
         else:
             doc.update(copy.deepcopy(internal))
+        from asset_impact import video_sources
+        doc['sourceVersions']=video_sources(doc)
         save_json(folder(ident) / 'History' / f"r{current['revision']:06}.json", current)
         doc['revision'] += 1
         doc['updated'] = datetime.now().isoformat(timespec='seconds')

@@ -1,0 +1,11 @@
+/* The native shell shares the web lifecycle; closing a window is explicit. */
+(() => {
+'use strict';if(window.CW_VIDEO_EMBEDDED)return;
+function start(){if(!window.pywebview?.api||window.CWDesktop)return;const bridge=window.pywebview.api,dialog=document.createElement('dialog');dialog.id='desktopCloseDialog';dialog.className='studio-dialog studio-palette';dialog.innerHTML='<div class="studio-head"><h2>关闭 CoverWorkbench</h2></div><p>你可以只关闭这个窗口并保留后台任务，也可以停止本机工作台。停止后台会让其他工作台网页断开连接。</p><p id="desktopDraftNotice"></p><div class="studio-row"><button id="desktopCloseCancel">继续编辑</button><button id="desktopWindowOnly">仅关闭窗口 · 保留后台</button><button id="desktopExitAll">保存并彻底退出</button></div><button id="desktopOpenBrowser">在浏览器中继续使用</button><p id="desktopHostStatus" role="status"></p>';document.body.append(dialog);
+ const $=s=>dialog.querySelector(s);function requestClose(){if(dialog.open)return;const state=window.CWVideoStudio?.get()||window.CWVideoHost?.state();$('#desktopDraftNotice').textContent=state?.dirty?'当前视频有未保存编辑，关闭前会先保存；保存失败时窗口会保留。':'当前没有检测到未保存的视频编辑。';dialog.showModal();}
+ async function save(){const state=window.CWVideoStudio?.get()||window.CWVideoHost?.state();if(state?.dirty){if(window.CWVideoStudio)await window.CWVideoStudio.save();else await window.CWVideoHost.saveCurrent();}}
+ $('#desktopCloseCancel').onclick=()=>dialog.close();$('#desktopWindowOnly').onclick=async()=>{try{await save();await bridge.close_window();}catch(e){$('#desktopHostStatus').textContent=e.message;}};$('#desktopExitAll').onclick=async()=>{try{await save();dialog.close();document.querySelector('#cwExitButton').click();}catch(e){$('#desktopHostStatus').textContent=e.message;}};$('#desktopOpenBrowser').onclick=()=>bridge.open_browser();
+ const badge=document.createElement('span');badge.className='desktop-badge';badge.textContent='Windows 桌面版';badge.title='独立窗口，与网页共用工作区和本机后台';document.querySelector('.breadcrumb,.document-bar')?.prepend(badge);
+ window.CWDesktop={requestClose};window.addEventListener('cw-workbench-exit',()=>{let attempts=0;const timer=setInterval(async()=>{try{await bridge.finish_exit();clearInterval(timer);}catch{if(++attempts>40)clearInterval(timer);}},350);});}
+window.addEventListener('pywebviewready',start);start();
+})();

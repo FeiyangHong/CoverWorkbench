@@ -10,6 +10,9 @@
 /work/
 /vendor/
 /outputs/
+/dist/
+/build/
+*.spec
 
 # Locally captured DAW state contains external SVP paths and plugin presets.
 /integrations/studio-one/*

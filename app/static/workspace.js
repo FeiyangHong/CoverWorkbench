@@ -41,6 +41,7 @@ function activate(tab,write=true){
 }
 window.CWVideoHost={
  pause(){editor?.pause();},
+ focus(time,cue){if(cue)editor?.select(cue);editor?.seek(time);},
  useMix(path){if(!editor)throw Error('视频编辑器尚未就绪');editor.useMix(path);},
  notifyVersions(){editor?.notifyVersions();},
  async saveCurrent(){if(editor?.state().dirty)await editor.save();},

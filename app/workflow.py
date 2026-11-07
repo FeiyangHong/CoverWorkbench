@@ -34,9 +34,17 @@ def update(j, **kw):
 
 def command(j, args, cwd=None):
     # Argument lists, no shell; each invocation and diagnostic retained locally.
-    cp = subprocess.run([str(x) for x in args], cwd=cwd, capture_output=True,
-                        encoding='utf-8', errors='replace', timeout=900,
-                        creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+    if j.get('cancelRequested'):raise InterruptedError('交付任务已取消')
+    process=subprocess.Popen([str(x) for x in args],cwd=cwd,stdout=subprocess.PIPE,stderr=subprocess.PIPE,encoding='utf-8',errors='replace',creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0));deadline=time.monotonic()+900
+    try:
+        while True:
+            if j.get('cancelRequested'):raise InterruptedError('交付任务已取消')
+            if time.monotonic()>deadline:raise ValueError('交付工具执行超时')
+            try:out,err=process.communicate(timeout=.2);break
+            except subprocess.TimeoutExpired:continue
+        cp=subprocess.CompletedProcess(process.args,process.returncode,out,err)
+    finally:
+        if process.poll() is None:process.kill();process.communicate()
     log = Path(j['outputDir'])/'task.log'
     with log.open('a', encoding='utf-8') as f:
         f.write(json.dumps([str(x) for x in args], ensure_ascii=False)+'\n'+cp.stdout+'\n'+cp.stderr+'\n')
@@ -158,7 +166,7 @@ def _enqueue(pid, body, watcher=False):
         if not math.isfinite(offset) or abs(offset)>600:raise ValueError('音频偏移需要在 ±600 秒内')
         data.update(offset=offset,burnSubtitles=body.get('burnSubtitles') is True,
                     allowDurationMismatch=body.get('allowDurationMismatch') is True)
-    if not (settings.executable('ffmpeg')).is_file():raise ValueError('FFmpeg 未找到')
+    if not Path(settings.executable('ffmpeg')).is_file():raise ValueError('FFmpeg 未找到')
     stamp=f"{pid}_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
     from workspaces import outputs
     out=outputs(p)/'exports'/('delivery' if kind=='delivery' else 'video')/stamp
@@ -231,15 +239,25 @@ def worker():
         ident=PENDING.get(); j=JOBS[ident]
         with lifecycle.operation('交付任务'):
             try:
-                update(j,status='running',message='任务开始')
-                (delivery if j['kind']=='delivery' else video)(j)
+                import task_resources
+                def check():
+                    if j.get('cancelRequested'):raise InterruptedError('交付任务已取消')
+                with task_resources.claim(check):
+                    check();update(j,status='running',message='任务开始')
+                    (delivery if j['kind']=='delivery' else video)(j)
+                    check()
                 update(j,status='completed',progress=100,message='完成；可下载结果')
             except Exception as e:
-                update(j,status='failed',message=str(e))
+                update(j,status='cancelled' if isinstance(e,InterruptedError) else 'failed',message=str(e))
                 log=Path(j['outputDir'])/'task.log'
                 if log.exists():
                     dest=log.with_name(j['id']+'_task.log');log.rename(dest);add_file(j,dest,'失败日志')
             finally:PENDING.task_done()
+
+def cancel(ident):
+    with GUARD:
+        if ident not in JOBS:raise ValueError('交付任务不存在')
+        update(JOBS[ident],cancelRequested=True);return public(JOBS[ident])
 
 def start():
     global STARTED

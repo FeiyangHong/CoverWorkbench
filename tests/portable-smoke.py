@@ -125,6 +125,7 @@ def main():
                 subprocess.run(['node', str(ROOT / 'tests/output-audio-ui.cjs'), base], check=True, cwd=ROOT)
                 subprocess.run(['node', str(ROOT / 'tests/project-library-ui.cjs'), base], check=True, cwd=ROOT)
                 subprocess.run(['node', str(ROOT / 'tests/project-safety-ui.cjs'), base], check=True, cwd=ROOT)
+                subprocess.run(['node', str(ROOT / 'tests/production-assist-ui.cjs'), base], check=True, cwd=ROOT)
                 subprocess.run(['node', str(ROOT / 'tests/lifecycle-ui.cjs'), base], check=True, cwd=ROOT)
             else:
                 assert request('/api/shutdown/local', {'confirm': True, 'instance': service['instance']})['state'] == 'stopping'

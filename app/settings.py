@@ -7,7 +7,7 @@ import shutil
 import sys
 import threading
 
-ROOT = Path(__file__).resolve().parents[1]
+from runtime_paths import ROOT
 FILE = ROOT / 'config/settings.local.json'
 LOCK = threading.RLock()
 DEFAULTS = {

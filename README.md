@@ -34,6 +34,7 @@ CoverWorkbench 把适合批量处理的步骤交给工具，让歌词、音符�
 | 视频制作 | [歌曲与视频关联、自动带入混音与双语字幕、SV 时间锚点、准确预览与独立版本导出](docs/VideoStudio.md) | 对时与翻译确认、最终画面和试听 |
 | 检查与交付 | 通过本机 FFmpeg 检查音频、整理交付包、替换视频音轨 | 最终试听、画面与发布 |
 | 工程保护与复用 | [独立自动草稿、工程包搬家、成品版本、可恢复缓存清理、字幕与导出预设](docs/ProjectCare.md) | 恢复选择、版本定稿与永久清理确认 |
+| 制作助手 | [统一任务、可定位的成片检查、素材更新影响、环境诊断与源码回退](docs/ProductionAssistant.md) | 复核提示、采用新版素材与重试确认 |
 
 ## 界面预览
 
@@ -84,6 +85,8 @@ CoverWorkbench 把适合批量处理的步骤交给工具，让歌词、音符�
 ## 快速开始
 
 支持的本机集成环境为 **Windows**，需要 **Python 3.11+**。
+
+也提供[Windows 独立桌面窗口与便携 EXE 构建](docs/Desktop.md)，和网页共用工作区。便携包的核心运行环境无需另装 Python；原生工具与可选引擎配置见桌面指南。
 
 ```powershell
 git clone https://github.com/FeiyangHong/CoverWorkbench.git

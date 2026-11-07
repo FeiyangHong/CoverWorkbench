@@ -1,4 +1,4 @@
-param([string]$PythonExe = '', [switch]$WithLyrics)
+param([string]$PythonExe = '', [switch]$WithLyrics, [switch]$WithDesktop)
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 if (-not $PythonExe) {
@@ -19,6 +19,10 @@ if (-not (Test-Path -LiteralPath $venvPython)) {
 if ($WithLyrics) {
     & $venvPython -m pip install -r (Join-Path $root 'requirements-lyrics.txt')
     if ($LASTEXITCODE -ne 0) { throw 'Optional lyric dependencies failed to install.' }
+}
+if ($WithDesktop) {
+    & $venvPython -m pip install -r (Join-Path $root 'requirements-desktop.txt')
+    if ($LASTEXITCODE -ne 0) { throw 'Optional desktop dependencies failed to install.' }
 }
 & $venvPython (Join-Path $root 'tools\setup.py')
 if ($LASTEXITCODE -ne 0) { throw 'Setup failed.' }

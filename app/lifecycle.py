@@ -36,6 +36,7 @@ def status():
     import video_jobs
     import separation_jobs
     import project_tasks
+    import task_center
     with LOCK:
         with separation_jobs.LOCK:
             separations = sum(j['status'] in ['queued', 'running'] for j in separation_jobs.JOBS.values())
@@ -47,10 +48,12 @@ def status():
             videos = sum(j['status'] in ['queued', 'running'] for j in video_jobs.JOBS.values())
         with project_tasks.LOCK:
             maintenance=sum(j['status'] in ['queued','running'] for j in project_tasks.JOBS.values())
+        with task_center.LOCK:
+            studio_tasks=sum(j['status'] in ['queued','running'] for j in task_center.JOBS.values())
         operations = dict(ACTIVE)
         return {'instance': INSTANCE, 'state': 'stopping' if STOPPING else 'running',
-                'canExit': not STOPPING and not operations and not auditions and not deliveries and not videos and not separations and not maintenance,
-                'auditions': auditions, 'deliveries': deliveries, 'videos': videos, 'separations': separations,'maintenance':maintenance,'operations': operations}
+                'canExit': not STOPPING and not operations and not auditions and not deliveries and not videos and not separations and not maintenance and not studio_tasks,
+                'auditions': auditions, 'deliveries': deliveries, 'videos': videos, 'separations': separations,'maintenance':maintenance,'studioTasks':studio_tasks,'operations': operations}
 
 
 def request_exit(instance):
