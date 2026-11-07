@@ -107,7 +107,9 @@ def main():
         attach_child_streams()
         index=sys.argv.index('--module');name=sys.argv[index+1]
         if name!='yt_dlp':raise ValueError('Unknown module')
-        sys.argv=[name,*sys.argv[index+2:]];runpy.run_module(name,run_name='__main__');return
+        sys.argv=[name,*sys.argv[index+2:]]
+        import yt_dlp
+        yt_dlp.main();return
     parser=argparse.ArgumentParser();parser.add_argument('--workspace');parser.add_argument('--port',type=int,default=int(os.environ.get('COVERWORKBENCH_PORT','8765')));parser.add_argument('--server',action='store_true');parser.add_argument('--worker');parser.add_argument('--module');parser.add_argument('--smoke-test');parser.add_argument('arguments',nargs='*');args=parser.parse_args()
     if not 1<=args.port<=65535:raise ValueError('端口应在 1 至 65535 之间')
     root=root_path(args.workspace);os.environ['COVERWORKBENCH_ROOT']=str(root);os.environ['COVERWORKBENCH_PORT']=str(args.port);sys.path.insert(0,str(root/'app'))
@@ -144,7 +146,11 @@ def main():
 if __name__=='__main__':
     try:main()
     except Exception as error:
-        if '--server' in sys.argv or '--worker' in sys.argv or '--module' in sys.argv:raise
+        if '--server' in sys.argv or '--worker' in sys.argv or '--module' in sys.argv:
+            import traceback
+            if sys.stderr is None:
+                sys.stderr=open('Desktop Worker Error.log','a',encoding='utf-8')
+            traceback.print_exc(file=sys.stderr);sys.stderr.flush();sys.exit(1)
         if os.name=='nt':
             import ctypes
             ctypes.windll.user32.MessageBoxW(None,str(error)+'\n\n源码启动需先运行 Setup.ps1 -WithDesktop；桌面窗口需要 WebView2 Runtime。','CoverWorkbench',0x10)
