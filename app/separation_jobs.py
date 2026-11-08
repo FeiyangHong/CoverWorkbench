@@ -1,4 +1,4 @@
-"""Owned, finite MSST jobs: explicit input, explicit stem roles, register after success."""
+"""Owned PyMSS/MSST jobs: explicit input and stems, register after success."""
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 import copy
@@ -127,7 +127,7 @@ def history(ident):
 
 
 def submit(ident, body):
-    with lifecycle.operation('提交 MSST 分离'), LOCK:
+    with lifecycle.operation('提交素材分离'), LOCK:
         p = project_assets.project(ident)
         if any(j['status'] in ['queued', 'running'] for j in JOBS.values()):
             raise ValueError('已有工作台分离任务，请完成或取消后再开始，避免同时占用显存')
@@ -219,14 +219,15 @@ def run(job, runtime, install):
 
 def _run(job, runtime, install):
     process = None
+    engine_name='PyMSS' if job.get('engine')=='pymss' else 'MSST'
     try:
-        update(job, status='running', message='准备输入副本；随后由本机 MSST 模型分离')
+        update(job, status='running', message=f'准备输入副本；随后由本机 {engine_name} 模型分离')
         source, owned = Path(job['input']), Path(job['ownedInput'])
         before = sha(source)
         shutil.copy2(source, owned)
         if sha(owned) != before or sha(source) != before:
             raise ValueError('输入音频在复制时发生改变，请完成保存后重试')
-        update(job, inputSHA256=before, message='MSST 正在分离；模型首次加载可能需要一些时间')
+        update(job, inputSHA256=before, message=f'{engine_name} 正在分离；模型首次加载可能需要一些时间')
         if job['cancel'].is_set():
             update(job, status='cancelled', message='已取消；已有素材保持不变')
             return
@@ -259,11 +260,11 @@ def _run(job, runtime, install):
             update(job, status='cancelled', message='已取消；未登记本次结果，已有素材保持不变')
             return
         if process.returncode != 0:
-            raise ValueError(('PyMSS' if job.get('engine')=='pymss' else 'MSST')+' 运行失败，请打开本次结果文件夹查看 msst.log')
+            raise ValueError(engine_name+' 运行失败，请打开本次结果文件夹查看 msst.log')
         result = read_json(folder / 'result.json')
         expected = {'vocals', 'accompaniment'} if job['mode'] == 'song' else {'lead', 'harmony'} if job['mode'] == 'harmony' else {'vocals', 'accompaniment', 'lead', 'harmony'}
         if not isinstance(result, dict) or set(result) != expected:
-            raise ValueError('MSST 结果种类不完整，未自动登记')
+            raise ValueError(engine_name+' 结果种类不完整，未自动登记')
         for role, value in result.items():
             file = daw.local(value, {'.wav'})
             if file.resolve().parent != (folder / role).resolve():
