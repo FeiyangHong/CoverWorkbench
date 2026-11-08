@@ -54,7 +54,7 @@ def ensure_service(root,port):
     raise ValueError('后台启动超时；请查看 logs/desktop-service.log')
 
 class Bridge:
-    def __init__(self,base,instance,owned):self._base=base;self._instance=instance;self._owned=owned;self._window=None;self._allow_close=False
+    def __init__(self,base,instance,owned):self._base=base;self._instance=instance;self._owned=owned;self._window=None;self._allow_close=False;self._close_pending=threading.Lock()
     def info(self):return {'desktop':True,'serviceOwned':self._owned,'url':self._base,'engine':'WebView2','sharedWorkspace':True}
     def open_browser(self):webbrowser.open(self._base);return True
     def close_window(self):
@@ -68,15 +68,25 @@ class Bridge:
         return self.close_window()
     def closing(self):
         if self._allow_close:return True
+        # FormClosing runs on the WinForms UI thread. Both evaluate_js and
+        # run_js wait for WebView2's UI-thread continuation, so never call them
+        # here: return the veto first and ask the document from a worker.
+        if self._close_pending.acquire(blocking=False):
+            threading.Thread(target=self._request_close,daemon=True).start()
+        return False
+    def _request_close(self):
         try:
-            if self._window.evaluate_js('Boolean(window.CWDesktop)'):
-                self._window.run_js('window.CWDesktop.requestClose()');return False
-        except Exception:pass
-        return True
+            if not self._window.evaluate_js('Boolean(window.CWDesktop && (window.CWDesktop.requestClose(), true))'):
+                self.close_window()
+        except Exception as error:
+            print('Desktop close confirmation unavailable:',error,flush=True)
+            self.close_window()
+        finally:self._close_pending.release()
 
 def smoke(window,bridge,path):
     # Exercises the actual WebView2 document and close event in a disposable workspace.
     report={'engine':'WebView2'}
+    def record():Path(path).write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
     try:
         for _ in range(160):
             try:
@@ -84,23 +94,44 @@ def smoke(window,bridge,path):
             except Exception:pass
             time.sleep(.2)
         else:raise RuntimeError('Desktop document did not become ready')
-        window.run_js('window.CWDesktop.requestClose()');time.sleep(.3)
-        report['closeDialog']=window.evaluate_js('document.querySelector("#desktopCloseDialog").open')
+        report['phase']='native-close';record();started=time.monotonic()
+        # destroy dispatches the same WinForms FormClosing event as the title-bar X.
+        threading.Thread(target=window.destroy,daemon=True).start()
+        for _ in range(100):
+            if window.evaluate_js('Boolean(document.querySelector("#desktopCloseDialog")?.open)'):break
+            time.sleep(.03)
+        else:raise RuntimeError('Native close did not open the confirmation dialog')
+        report['closeDialogSeconds']=round(time.monotonic()-started,3)
+        if report['closeDialogSeconds']>3:raise RuntimeError('Native close blocked the window thread')
+        report['closeDialog']=True
+        threading.Thread(target=window.destroy,daemon=True).start();time.sleep(.1)
+        report['repeatedCloseResponsive']=window.evaluate_js('document.querySelectorAll("#desktopCloseDialog[open]").length===1')
         window.run_js('document.querySelector("#desktopCloseCancel").click()')
         report['cancelKeptWindow']=not window.evaluate_js('document.querySelector("#desktopCloseDialog").open')
         report['taskButton']=window.evaluate_js('document.querySelector("#taskCenterButton").textContent')
         report['userAgent']=window.evaluate_js('navigator.userAgent')
         state=request(bridge._base,'/api/lifecycle')
         if not bridge._owned or not state['canExit']:raise ValueError('Smoke test requires its own idle backend')
-        request(bridge._base,'/api/shutdown/local',{'confirm':True,'instance':bridge._instance});time.sleep(1)
+        report['phase']='close-confirmation';record()
+        threading.Thread(target=window.destroy,daemon=True).start()
+        for _ in range(100):
+            if window.evaluate_js('document.querySelector("#desktopCloseDialog").open'):break
+            time.sleep(.03)
+        else:raise RuntimeError('Native close did not reopen after cancel')
+        window.run_js('document.querySelector("#desktopExitAll").click()')
+        for _ in range(100):
+            if window.evaluate_js('document.querySelector("#cwExitDialog").open && !document.querySelector("#cwExitConfirm").disabled'):break
+            time.sleep(.03)
+        else:raise RuntimeError('Backend exit confirmation did not become ready')
+        window.run_js('document.querySelector("#cwExitConfirm").click()');time.sleep(.3)
         for _ in range(30):
             try:request(bridge._base,'/api/health');time.sleep(.1)
             except (urllib.error.URLError,TimeoutError,ConnectionError):break
         else:raise ValueError('Backend did not exit')
-        report['backendExited']=True;report['ok']=bool(report['closeDialog'] and report['cancelKeptWindow'])
+        report['backendExited']=True;report['ok']=bool(report['closeDialog'] and report['cancelKeptWindow'] and report['repeatedCloseResponsive']);report['phase']='complete'
     except Exception as error:report.update(ok=False,error=str(error))
     finally:
-        Path(path).write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8');bridge.close_window()
+        record();bridge.close_window()
 
 def main():
     if '--module' in sys.argv:
