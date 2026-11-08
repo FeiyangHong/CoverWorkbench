@@ -103,7 +103,7 @@ cd CoverWorkbench
 2. 在 **导入工程** 中选择已保存的 SVP，填写标题与语言。也可直接使用 Studio One 建工程页。
 3. 在 **项目主页** 选择下一步：分离素材、打开 SV、继续已有 Song 或进入本曲视频。用 **管理文件路径** 登记主声、伴奏与成品混音，后续步骤自动读取。
 
-**素材分离** 页可设置自己的 MSST 启动程序 / 快捷方式与本机网页地址；点击才启动，不随工作台自动加载模型。支持新标签页和可选页内嵌入，分离仍由独立 MSST 服务执行。MSST 未安装或页面限制嵌入时，可继续使用已有本地素材。详见 [制作主页与 MSST 接入](docs/Production.md)。
+**素材分离** 页支持已安装的 **PyMSS Studio App** 和 **PyMSS 源码环境**，读取活动 Python 与模型目录，共享模型库，不修改 App 的 Python/Torch。可选择 Big7、DeUX、HyperACE、Leap Xe 和 Karaoke 模型，按需联网准备缺少的权重；默认采用 87.5% 重叠、batch 1、关闭 TTA。旧 **MSST** 仍可切换使用，也保留启动、跳转及页内打开。分离仅在发起任务时加载模型。详见 [PyMSS 接入、模型与试听](docs/PyMSS.md)。
 
 歌词素材页负责搜词、导入与罗马音准备；正式双语字幕在视频区调整。旧的音符校对、模型对比、网页 SV 遥控与字幕草稿默认隐藏，可在项目主页 **更多工具与历史功能** 中显式启用。正常流程不轮询 SV 实时连接。
 
@@ -160,6 +160,7 @@ SV 脚本需要另外安装到对应编辑器的脚本目录并重新扫描。�
 感谢这些项目及其维护者，让工作台可以串起已有的制作工具：
 
 - [MSST-WebUI](https://github.com/SUC-DriverOld/MSST-WebUI) 与 [Music-Source-Separation-Training](https://github.com/ZFTurbo/Music-Source-Separation-Training)：独立素材分离服务。
+- [PyMSS](https://github.com/pymss-project/pymss) 与 [PyMSS Studio](https://github.com/pymss-project/pymss-studio)：新一代本机分离引擎与共享模型库；感谢各模型作者。可选 [UNMIXX](https://github.com/jihoojung0106/unmixx) 仅用于独立的实验性歌手分离对比。
 - [FFmpeg / FFprobe](https://ffmpeg.org/)、[libass](https://github.com/libass/libass) 与 [yt-dlp](https://github.com/yt-dlp/yt-dlp)：媒体处理、字幕排版和可选视频下载。
 - [pykakasi](https://github.com/miurahr/pykakasi)、[Pedalboard](https://github.com/spotify/pedalboard) 与 [Playwright](https://playwright.dev/)：可选日语读音、原生插件试听和开发验证。
 

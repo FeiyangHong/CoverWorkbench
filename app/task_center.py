@@ -1,13 +1,14 @@
 """Unified task views and validated retries across existing local services."""
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
-import copy,threading,time,uuid
+import copy,threading,time,uuid,os,subprocess
+from contextlib import nullcontext
 from core import ROOT,read_json,save_json
 import lifecycle,video_project,video_jobs,separation_jobs,project_tasks,native_audio,workflow,task_resources
 
 LOCK=threading.RLock();JOBS={};POOL=ThreadPoolExecutor(max_workers=2,thread_name_prefix='studio-tools')
 BASE=ROOT/'runtime/studio-tasks'
-NAMES={'download':'视频下载','export':'完整导出','preview':'准确预览','analyze':'音频分析','pipeline':'两步素材分离','song':'人声与伴奏分离','harmony':'主声与和声分离','pack':'工程打包','import':'工程导入','preflight':'成片检查','proxy':'网页代理','diagnostic':'环境诊断','delivery':'音频交付','video':'视频交付','native':'插件试听'}
+NAMES={'download':'视频下载','export':'完整导出','preview':'准确预览','analyze':'音频分析','pipeline':'两步素材分离','song':'人声与伴奏分离','harmony':'主声与和声分离','pack':'工程打包','import':'工程导入','preflight':'成片检查','proxy':'网页代理','diagnostic':'环境诊断','delivery':'音频交付','video':'视频交付','native':'插件试听','pymss-models':'PyMSS 模型准备'}
 
 def public(j):return copy.deepcopy({k:v for k,v in j.items() if k!='cancel'})
 def update(j,**values):
@@ -28,8 +29,12 @@ def own(ident):
 
 def submit(body):
     kind=body.get('kind');ident=body.get('project')
-    if kind not in ('preflight','proxy','diagnostic'):raise ValueError('未知后台工具')
-    if kind!='diagnostic':
+    if kind not in ('preflight','proxy','diagnostic','pymss-models'):raise ValueError('未知后台工具')
+    if kind=='pymss-models':
+        import pymss_backend
+        pymss_backend.installation()
+        if not isinstance(body.get('models'),list) or not body['models'] or len(body['models'])>len(pymss_backend.PRESETS) or any(k not in pymss_backend.PRESETS for k in body['models']):raise ValueError('请选择已知模型')
+    if kind not in ('diagnostic','pymss-models'):
         doc=video_project.load(ident)
         if body.get('revision')!=doc['revision']:raise ValueError('请先保存视频工程并重新提交检查')
         if kind=='proxy' and not body.get('asset'):raise ValueError('请选择媒体素材')
@@ -43,7 +48,7 @@ def submit(body):
 
 def run(j):
     try:
-        with task_resources.claim(lambda:check(j),lambda:update(j,stage='等待计算资源')):
+        with (nullcontext() if j['kind']=='pymss-models' else task_resources.claim(lambda:check(j),lambda:update(j,stage='等待计算资源'))):
             check(j);update(j,status='running',stage='处理输入')
             if j['kind']=='preflight':
                 import publish_checks
@@ -51,6 +56,21 @@ def run(j):
             elif j['kind']=='proxy':
                 import video_edit
                 result=video_edit.proxy(j['project'],j['request'],check=lambda:check(j))
+            elif j['kind']=='pymss-models':
+                import pymss_backend
+                python,models=pymss_backend.paths();folder=Path(j['folder']);flag=folder/'Cancel.requested'
+                update(j,stage='下载并登记缺少的模型；已有文件和 App 环境保留')
+                with (folder/'Model Preparation.log').open('wb') as log:
+                    child=subprocess.Popen([str(python),str(ROOT/'tools/PreparePyMSS.py'),'--cancel-file',str(flag),'--parent-pid',str(os.getpid()),'--models',*j['request']['models']],stdout=log,stderr=subprocess.STDOUT,env={**os.environ,'PYTHONUTF8':'1'},creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+                    try:
+                        while child.poll() is None:
+                            if j['cancel'].wait(.2):flag.write_text('cancel',encoding='ascii');raise InterruptedError('已取消模型准备；下载片段保留，可再次继续')
+                    finally:
+                        if child.poll() is None:
+                            try:child.wait(timeout=3)
+                            except subprocess.TimeoutExpired:child.terminate();child.wait(timeout=5)
+                if child.returncode:raise ValueError('模型准备失败，请查看 Model Preparation.log；App 的 Python 环境未修改')
+                result={'modelDirectory':str(models),'models':j['request']['models']}
             else:
                 import deployment_tools
                 result=deployment_tools.diagnostic(j['folder'])
@@ -120,7 +140,7 @@ def action(key,body):
         old=video_jobs.job(ident);return video_jobs.submit(selected['project'],{'kind':old['kind'],**old.get('spec',{})})
     if origin=='separation':
         old=next(j for j in separation_jobs.history(selected['project']) if j['id']==ident)
-        return separation_jobs.submit(selected['project'],{'mode':old['mode'],'harmonyInput':old['harmonyInput'],'input':old['input'],'resumeFrom':ident})
+        return separation_jobs.submit(selected['project'],{'mode':old['mode'],'harmonyInput':old['harmonyInput'],'input':old['input'],'resumeFrom':ident,'engine':old.get('engine','msst'),'quality':old.get('quality','high'),'songModel':old.get('songModel','big7'),'harmonyModel':old.get('harmonyModel','bs-frazer')})
     if origin=='package':
         old=project_tasks.get(ident);request=old.get('request')
         if not request:raise ValueError('旧任务未保存参数，请在工程管理中重新选择')

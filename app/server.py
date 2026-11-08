@@ -142,6 +142,15 @@ class Handler(BaseHTTPRequestHandler):
             if parts[:2]==['api','music-video'] and len(parts)==3:return self.respond(video_links.overview(parts[2]))
             if parts==['api','separation']:return self.respond(separation.status())
             if parts==['api','separation-capabilities']:return self.respond(separation_jobs.capabilities())
+            if parts==['api','separation-comparisons']:
+                import separation_compare
+                return self.respond(separation_compare.listing())
+            if parts[:2]==['api','separation-comparison'] and len(parts)==3:
+                import separation_compare
+                return self.respond(separation_compare.report(parts[2])[1])
+            if parts[:1]==['separation-audio'] and len(parts)==2:
+                import separation_compare
+                return self.file(separation_compare.media(parts[1],parse_qs(urlsplit(self.path).query).get('key',[''])[0]))
             if parts[:2]==['api','separation-jobs'] and len(parts)==3:return self.respond(separation_jobs.history(parts[2]))
             if parts[:2]==['api','workspace'] and len(parts)==3:return self.respond(workspaces.status(parts[2]))
             if parts[:2]==['api','project-assets'] and len(parts)==3:return self.respond(project_assets.status(parts[2]))

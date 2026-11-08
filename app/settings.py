@@ -15,6 +15,7 @@ DEFAULTS = {
     'songsDirectory': str(Path.home() / 'Documents/Studio One/Songs'),
     'lyricCache': str(Path(os.environ.get('APPDATA', str(Path.home() / '.config'))) / 'MusicLyricApp/cache'),
     'msstUrl': 'http://127.0.0.1:7860', 'msstLauncher': '', 'msstDirectory': '', 'msstPython': '',
+    'pymssPython':'','pymssModels':'','pymssDirectory':'','pymssDataRoot':'','separationEngine':'pymss',
 }
 
 
@@ -45,21 +46,26 @@ def save(body):
         value = value.strip().strip('"“”')
         if any(c in value for c in '\x00\r\n'):
             raise ValueError('Paths must not contain control characters')
+        if key=='separationEngine':
+            if value not in ('pymss','msst'):raise ValueError('请选择 PyMSS 或旧 MSST')
+            values[key]=value
+            continue
         if key == 'msstUrl':
             from separation import local_url
             values[key] = local_url(value)
             continue
-        if key in ['msstLauncher', 'msstDirectory', 'msstPython'] and value.startswith(('\\\\', '//')):
+        if key in ['msstLauncher', 'msstDirectory', 'msstPython','pymssPython','pymssModels','pymssDirectory','pymssDataRoot'] and value.startswith(('\\\\', '//')):
             raise ValueError('请选择本机已安装的 MSST 启动程序')
         if value and not Path(value).is_absolute():
             raise ValueError('Use an absolute path, or leave the field empty for automatic detection')
-        if value and key in ['ffmpeg', 'ffprobe', 'studioOne', 'sv1', 'sv2', 'msstPython']:
+        if value and key in ['ffmpeg', 'ffprobe', 'studioOne', 'sv1', 'sv2', 'msstPython','pymssPython']:
             if not Path(value).is_file() or (os.name == 'nt' and Path(value).suffix.lower() != '.exe'):
                 raise ValueError('Select an existing executable: ' + key)
         if value and key == 'msstLauncher' and (not Path(value).is_file() or Path(value).suffix.lower() not in {'.exe', '.lnk'}):
             raise ValueError('请选择已安装 MSST 的 .exe 或桌面 .lnk 快捷方式')
         if value and key == 'msstDirectory' and not Path(value).is_dir():
             raise ValueError('请选择 MSST 安装目录')
+        if value and key in ('pymssModels','pymssDirectory','pymssDataRoot') and not Path(value).is_dir():raise ValueError('请选择已存在的 PyMSS 目录')
         values[key] = value
     with LOCK:
         result = {**load(), **values}

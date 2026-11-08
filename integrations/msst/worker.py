@@ -5,6 +5,7 @@ import os
 import sys
 import threading
 import hashlib
+import time
 
 
 def watch_parent(pid):
@@ -24,8 +25,16 @@ def watch_parent(pid):
         os._exit(2)
     threading.Thread(target=monitor, daemon=True).start()
 
+def watch_cancel(path):
+    if not path:return
+    def monitor():
+        while True:
+            if Path(path).is_file():os._exit(2)
+            time.sleep(.15)
+    threading.Thread(target=monitor,daemon=True).start()
 
-def run(request):
+
+def run(request, meter=None):
     install = Path(request['installation'])
     sys.path.insert(0, str(install))
     os.chdir(install)
@@ -40,15 +49,25 @@ def run(request):
     for index,step in enumerate(request['steps']):
         if index<request.get('completedSteps',0):continue
         with open(step['config'], encoding='utf-8') as stream:
-            instruments = yaml.load(stream, Loader=ModelConfigLoader)['training']['instruments']
+            config = yaml.load(stream, Loader=ModelConfigLoader)
+            instruments = config['training']['instruments']
         if set(instruments) != set(step['stems']):
             raise ValueError('Model stem configuration differs from the selected workflow; no output was registered')
         source = Path(results['vocals']) if step['input'] == '@vocals' else Path(step['input'])
-        separator = MSSeparator(model_type=step['modelType'], config_path=step['config'], model_path=step['model'],
+        config_path=step['config']
+        if request.get('inferenceOverrides'):
+            config['inference'].update(request['inferenceOverrides'])
+            config_path=str(Path(request['result']).with_name('Model.yaml'))
+            # The old beartype-checked RoFormer requires tuple dimensions. The
+            # input was loaded with our inert-tag SafeLoader; preserve tuples
+            # when writing this owned config instead of converting them to lists.
+            Path(config_path).write_text(yaml.dump(config,sort_keys=False),encoding='utf-8')
+        separator = MSSeparator(model_type=step['modelType'], config_path=config_path, model_path=step['model'],
                                 device='auto', device_ids=[0], output_format='wav', use_tta=False,
                                 store_dirs={stem: step['folders'][role] for stem, role in step['stems'].items()},
                                 audio_params={'wav_bit_depth': 'FLOAT', 'flac_bit_depth': 'PCM_24', 'mp3_bit_rate': '320k'})
         try:
+            if meter:meter.loaded()
             success = separator.process_folder(str(source.parent))
             if source.name not in success:
                 raise RuntimeError('MSST did not successfully process the requested input')
@@ -83,4 +102,13 @@ def run(request):
 if __name__ == '__main__':
     spec = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8-sig'))
     watch_parent(spec['parentPid'])
-    run(spec)
+    watch_cancel(spec.get('cancelFile'))
+    if spec.get('measure'):
+        sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'app'))
+        from separation_metrics import StageMeter
+        import torch
+        step=spec['steps'][0]
+        with StageMeter(torch,step.get('name','MSST'),step['input'],Path(spec['result']).with_name('Metrics.json')) as meter:
+            meter.row.update(engine='msst',torchVersion=torch.__version__,inferenceOverrides=spec.get('inferenceOverrides',{}),tta=False)
+            run(spec,meter)
+    else:run(spec)

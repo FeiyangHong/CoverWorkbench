@@ -16,6 +16,7 @@ import lifecycle
 import project_assets
 import settings
 import workspaces
+import pymss_backend
 
 LOCK = threading.RLock()
 POOL = ThreadPoolExecutor(max_workers=1, thread_name_prefix='msst')
@@ -77,13 +78,22 @@ def installation():
     return install, Path(runtime).resolve(), models
 
 
-def capabilities():
+def legacy_capabilities():
     try:
         install, runtime, models = installation()
         return {'available': True, 'installation': str(install), 'python': str(runtime),
                 'models': {k: {'name': value[0], 'available': value[0] in models} for k, value in PROFILES.items()}}
     except (ValueError, OSError, subprocess.SubprocessError) as exc:
         return {'available': False, 'message': str(exc), 'models': {}}
+
+
+def capabilities():
+    engines={'msst':legacy_capabilities(),'pymss':pymss_backend.capabilities()}
+    selected=settings.load().get('separationEngine','pymss')
+    if not engines[selected]['available'] and engines['msst']['available']:selected='msst'
+    current=engines[selected]
+    models=current['models'] if selected=='msst' else {stage:{'name':pymss_backend.PRESETS[key]['name'],'available':current['models'][key]['available']} for stage,key in [('song','big7'),('harmony','bs-frazer')]}
+    return {**current,'engine':selected,'engines':engines,'models':models}
 
 
 def public(job):
@@ -129,9 +139,14 @@ def submit(ident, body):
         role = harmony_input if mode == 'harmony' else 'source'
         source = daw.local(body.get('input') or current[role]['path'], {'.wav', '.flac'})
         info = daw.media_info(source)
-        install, runtime, models = installation()
+        engine=body.get('engine') or capabilities()['engine']
+        if engine not in ('msst','pymss'):raise ValueError('请选择 PyMSS 或旧 MSST 引擎')
+        install, runtime, models = pymss_backend.installation() if engine=='pymss' else installation()
         stages = ['song', 'harmony'] if mode == 'pipeline' else [mode]
-        if any(PROFILES[s][0] not in models for s in stages):
+        song_model=body.get('songModel','big7');harmony_model=body.get('harmonyModel','bs-frazer')
+        quality=body.get('quality','high')
+        if quality not in ('high','balanced','model'):raise ValueError('请选择高质量、平衡或模型默认参数')
+        if engine=='msst' and any(PROFILES[s][0] not in models for s in stages):
             raise ValueError('缺少此流程需要的模型 / 配置，请在自己的 MSST 中安装后再试')
         root = workspaces.outputs(p)
         number = 1
@@ -142,26 +157,34 @@ def submit(ident, body):
                 break
             except FileExistsError:
                 number += 1
-        request = {'installation': str(install), 'parentPid': os.getpid(), 'result': str(folder / 'result.json'), 'steps': []}
+        request = {'installation': str(install), 'parentPid': os.getpid(),'cancelFile':str(folder/'Cancel.requested'), 'result': str(folder / 'result.json'), 'steps': []}
         # The worker consumes a single immutable input, never a shared global input folder.
         owned = folder / 'input' / ('Input' + source.suffix.lower())
         owned.parent.mkdir()
         job = {'id': uuid.uuid4().hex, 'musicId': ident, 'mode': mode, 'harmonyInput': harmony_input, 'inputRole': role, 'status': 'queued', 'folder': str(folder),
-               'created': time.time(), 'input': str(source), 'inputInfo': info, 'ownedInput': str(owned),
+               'created': time.time(), 'engine':engine,'quality':quality,'songModel':song_model,'harmonyModel':harmony_model,'input': str(source), 'inputInfo': info, 'ownedInput': str(owned),
                'baseline': {k: v['path'] for k, v in current.items()}, 'message': '正在准备输入副本', 'outputs': {},
                'cancel': threading.Event()}
         for index, stage in enumerate(stages):
-            model, stems = PROFILES[stage]
+            if engine=='pymss':
+                selected,stems=pymss_backend.step(song_model if stage=='song' else harmony_model,stage,models)
+            else:
+                model, stems = PROFILES[stage];selected=models[model]
             folders = {r: str(folder / r) for r in stems.values()}
-            request['steps'].append({**models[model], 'input': '@vocals' if index > 0 and harmony_input == 'vocals' else str(owned),
+            request['steps'].append({**selected, 'input': '@vocals' if index > 0 and harmony_input == 'vocals' else str(owned),
                                      'stems': stems, 'folders': folders})
+        request['engine']=engine
+        if engine=='pymss':
+            env=pymss_backend.environment();request['sourceRoot']=str(env['directory'] or '')
+            request['overlay']=env.get('overlay')
+            if quality!='model':request['overlapFraction']=.875 if quality=='high' else .5
         save_json(folder / 'request.json', request)
         if body.get('resumeFrom') and mode=='pipeline':
             old=next((j for j in history(ident) if j['id']==body['resumeFrom'] and j['status'] in ('failed','cancelled','interrupted')),None)
             checkpoint=Path(old['folder'])/'Checkpoint.json' if old else None
             if checkpoint and checkpoint.is_file():
                 data=read_json(checkpoint);outputs=data.get('outputs',{})
-                if data.get('completedSteps',0)>=1 and data.get('inputSHA256')==sha(source) and data.get('models',[None])[0]==model_stamp(request['steps'][0]) and set(outputs)>={'vocals','accompaniment'}:
+                if data.get('completedSteps',0)>=1 and data.get('engine','msst')==engine and data.get('overlapFraction')==request.get('overlapFraction') and data.get('inputSHA256')==sha(source) and data.get('models',[None])[0]==model_stamp(request['steps'][0]) and set(outputs)>={'vocals','accompaniment'}:
                     for role in ['vocals','accompaniment']:
                         f=Path(outputs[role]['path'])
                         if not f.is_file() or not f.resolve().is_relative_to(Path(old['folder']).resolve()) or sha(f)!=outputs[role]['sha256']:raise ValueError('已完成分离步骤的输出已改变，无法复用；请重新分离')
@@ -209,12 +232,13 @@ def _run(job, runtime, install):
             request.update(initialResults=initial,completedSteps=1)
         save_json(folder/'request.json',request)
         with (folder / 'msst.log').open('wb') as log:
-            process = subprocess.Popen([str(runtime), str(ROOT / 'integrations/msst/worker.py'), str(folder / 'request.json')],
+            process = subprocess.Popen([str(runtime), str(ROOT / ('integrations/pymss/worker.py' if job.get('engine')=='pymss' else 'integrations/msst/worker.py')), str(folder / 'request.json')],
                                        cwd=install, stdout=log, stderr=subprocess.STDOUT,
-                                       env={**os.environ, 'PYTHONUTF8': '1', 'PATH': str(install / 'ffmpeg/bin') + os.pathsep + str(install / 'ffmpeg') + os.pathsep + os.environ.get('PATH', '')},
+                                       env={**os.environ, 'PYTHONUTF8': '1', 'PATH': str(Path(settings.executable('ffmpeg',False)).parent) + os.pathsep + str(install / 'ffmpeg/bin') + os.pathsep + str(install / 'ffmpeg') + os.pathsep + os.environ.get('PATH', '')},
                                        creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
             while process.poll() is None:
                 if job['cancel'].wait(.25):
+                    (folder/'Cancel.requested').write_text('cancel',encoding='ascii')
                     process.terminate()
                     try:
                         process.wait(timeout=10)
@@ -226,7 +250,7 @@ def _run(job, runtime, install):
             update(job, status='cancelled', message='已取消；未登记本次结果，已有素材保持不变')
             return
         if process.returncode != 0:
-            raise ValueError('MSST 运行失败，请打开本次结果文件夹查看 msst.log')
+            raise ValueError(('PyMSS' if job.get('engine')=='pymss' else 'MSST')+' 运行失败，请打开本次结果文件夹查看 msst.log')
         result = read_json(folder / 'result.json')
         expected = {'vocals', 'accompaniment'} if job['mode'] == 'song' else {'lead', 'harmony'} if job['mode'] == 'harmony' else {'vocals', 'accompaniment', 'lead', 'harmony'}
         if not isinstance(result, dict) or set(result) != expected:
@@ -247,7 +271,8 @@ def _run(job, runtime, install):
                 update(job, status='cancelled', message='已取消；本次结果保留在文件夹，未登记')
                 return
             skipped = project_assets.register_generated(job['musicId'], values, job['baseline'])
-            update(job, status='completed', outputs=result, skipped=skipped,
+            metrics=read_json(folder/'Metrics.json') if (folder/'Metrics.json').is_file() else []
+            update(job, status='completed', outputs=result, skipped=skipped,metrics=metrics,
                    message='分离完成，已自动登记素材' if not skipped else '分离完成；运行中手动改过的素材路径已保留，请在结果中查看')
     except Exception as exc:
         update(job, status='failed', message=str(exc))

@@ -9,5 +9,10 @@
   "msstUrl": "http://127.0.0.1:7860",
   "msstLauncher": "",
   "msstDirectory": "",
-  "msstPython": ""
+  "msstPython": "",
+  "pymssDirectory": "",
+  "pymssPython": "",
+  "pymssModels": "",
+  "pymssDataRoot": "",
+  "separationEngine": "pymss"
 }

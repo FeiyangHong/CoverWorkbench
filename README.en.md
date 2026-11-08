@@ -135,6 +135,7 @@ Source code is managed separately from creative work. Git ignores local settings
 Thanks to the projects and maintainers that make these workflows possible:
 
 - [MSST-WebUI](https://github.com/SUC-DriverOld/MSST-WebUI) and [Music-Source-Separation-Training](https://github.com/ZFTurbo/Music-Source-Separation-Training) for the independently installed separation service.
+- [PyMSS](https://github.com/pymss-project/pymss), [PyMSS Studio](https://github.com/pymss-project/pymss-studio), and model authors for local separation and shared model catalogs. Optional [UNMIXX](https://github.com/jihoojung0106/unmixx) is used only for separate experimental singer comparisons.
 - [FFmpeg / FFprobe](https://ffmpeg.org/), [libass](https://github.com/libass/libass) and [yt-dlp](https://github.com/yt-dlp/yt-dlp) for media processing, subtitle rendering and optional video acquisition.
 - [pykakasi](https://github.com/miurahr/pykakasi), [Pedalboard](https://github.com/spotify/pedalboard) and [Playwright](https://playwright.dev/) for optional Japanese readings, native plugin audition and development checks.
 
@@ -156,7 +157,7 @@ The video workspace includes six-step readiness checks, recorded caption clocks 
 
 ## Production home and MSST
 
-The project home offers four handoffs: separate stems, edit in native SV, mix in Studio One, and finish the associated video. Register files once through **管理文件路径**. The **素材分离** page can launch a user-configured Windows MSST EXE/shortcut, open its localhost URL, or embed it automatically when ready (enabled by default). MSST and its models remain separately installed; closing the workbench does not close the MSST process.
+The project home offers four handoffs: separate stems, edit in native SV, mix in Studio One, and finish the associated video. Register files once through **管理文件路径**. The **素材分离** page supports an installed **PyMSS Studio App** or a **PyMSS source environment**, reusing the active Python and shared model directory without changing the App's Python/Torch packages. Choose Big7, DeUX, HyperACE, Leap Xe or Karaoke; explicitly prepare missing models online. Default inference uses 87.5% overlap, batch 1 and no TTA. Legacy **MSST** remains selectable, with launch, link and embedded-page support. Models load only for requested tasks. See the [PyMSS integration and audition guide (Chinese)](docs/PyMSS.md). Independently started MSST services are not closed with the workbench.
 
 Fine note editing stays in SV; final captions stay in Video Studio. Legacy review, model comparison, SV remote controls and music-side caption drafts are hidden unless explicitly enabled under **更多工具与历史功能**. Normal use does not poll the SV live bridge. See the [Chinese production guide](docs/Production.md).
 

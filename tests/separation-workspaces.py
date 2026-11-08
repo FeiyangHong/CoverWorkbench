@@ -88,7 +88,7 @@ class MSSeparator:
         worker = root / 'integrations/msst/worker.py'
         worker.parent.mkdir(parents=True)
         shutil.copy2(REPO / 'integrations/msst/worker.py', worker)
-        save_json(settings.FILE, {'msstDirectory': str(install), 'msstPython': sys.executable})
+        save_json(settings.FILE, {'msstDirectory': str(install), 'msstPython': sys.executable,'separationEngine':'msst'})
         assert jobs.capabilities()['models']['song']['available']
         source = root / 'original.wav'
         audio(source)
