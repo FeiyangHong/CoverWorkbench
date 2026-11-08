@@ -16,10 +16,17 @@ def main():
         settings.FILE=root/'config/settings.local.json';assets.STORE=root/'config/project-assets.local.json'
         save_json(settings.FILE,{'pymssDirectory':str(install),'pymssPython':sys.executable,'pymssModels':str(models),'separationEngine':'pymss'})
         (install/'pymss').mkdir();(install/'pymss/__init__.py').write_text('''from pathlib import Path
-import shutil
+import shutil,json
 class MSSeparator:
- def __init__(self,**kw):self.kw=kw
+ def __init__(self,**kw):
+  self.kw=kw
+  folder=Path(next(iter(kw['store_dirs'].values()))).parent
+  folder.mkdir(parents=True,exist_ok=True)
+  observed=folder/'Observed Params.json'
+  rows=json.loads(observed.read_text()) if observed.exists() else []
+  observed.write_text(json.dumps(rows+[{'batch':kw['inference_params']['batch_size'],'tta':kw['use_tta']}]))
  def process_folder(self,source):
+  if self.kw['inference_params']['batch_size']==16:raise RuntimeError('CUDA out of memory: synthetic capacity failure')
   for stem,folder in self.kw['store_dirs'].items():
    Path(folder).mkdir(parents=True,exist_ok=True);shutil.copyfile(source,Path(folder)/(Path(source).stem+'_'+stem+'.wav'))
   return [Path(source).name]
@@ -28,10 +35,10 @@ class MSSeparator:
         (install/'pymss-2.3.4.dist-info').mkdir();(install/'pymss-2.3.4.dist-info/METADATA').write_text('Name: pymss\nVersion: 2.3.4\n')
         (install/'yaml.py').write_text('import json\nclass SafeLoader:\n @classmethod\n def add_constructor(cls,*a):pass\ndef load(s,**kw):return json.loads(s)\n')
         (install/'torch.py').write_text("__version__='fixture'\nclass cuda:\n @staticmethod\n def is_available():return False\n")
-        for relative in ['integrations/pymss/worker.py','integrations/msst/worker.py','app/separation_metrics.py']:
+        for relative in ['integrations/pymss/worker.py','integrations/msst/worker.py','app/separation_metrics.py','app/separation_options.py']:
             dest=root/relative;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(REPO/relative,dest)
         registry={}
-        for key,stems in [('big7',['vocals','other']),('bs-frazer',['Vocals','Instrumental'])]:
+        for key,stems in [('big7',['vocals','other']),('deux',['Vocals','Instrumental']),('bs-frazer',['Vocals','Instrumental'])]:
             weight=models/(key+'.ckpt');weight.write_bytes(b'synthetic');config=models/(key+'.yaml');save_json(config,{'training':{'instruments':stems},'audio':{'chunk_size':1024},'inference':{}})
             registry[key]={'model':str(weight),'config':str(config),'stems':stems,'modelType':'bs_roformer'}
         save_json(root/'runtime/pymss/Model Registry.json',registry);save_json(root/'config/projects.json',[])
@@ -40,15 +47,45 @@ class MSSeparator:
         before=sha(source)
         with patch.object(projects,'media_info',side_effect=info),patch.object(jobs.daw,'media_info',side_effect=info):
             p=projects.create({'source':str(source),'title':'Fixture'});cap=jobs.capabilities();assert cap['engine']=='pymss' and cap['engines']['pymss']['available']
-            job=jobs.submit(p['id'],{'engine':'pymss','mode':'pipeline','songModel':'big7','harmonyModel':'bs-frazer','quality':'high'})
+            assert cap['defaults']=={'songModel':'deux','harmonyModel':'bs-frazer','quality':'high','batchSize':4,'tta':False}
+            job=jobs.submit(p['id'],{'engine':'pymss','mode':'pipeline','songModel':'deux','harmonyModel':'bs-frazer','quality':'high','batchSize':4,'tta':True})
             deadline=time.monotonic()+15
             while jobs.JOBS[job['id']]['status'] in ('running','queued') and time.monotonic()<deadline:time.sleep(.05)
             result=jobs.public(jobs.JOBS[job['id']]);assert result['status']=='completed',result
             assert set(result['outputs'])=={'vocals','accompaniment','lead','harmony'} and len(result['metrics'])==2
             assert read_json(Path(result['folder'])/'request.json')['overlapFraction']==.875
             assert read_json(Path(result['folder'])/'Checkpoint.json')['engine']=='pymss'
+            assert read_json(Path(result['folder'])/'Observed Params.json')==[{'batch':4,'tta':True}]*2
+            assert all(m['batchSize']==4 and m['tta'] is True for m in result['metrics'])
             for role,path in result['outputs'].items():assert Path(path).is_file() and assets.status(p['id'])['assets'][role]['path']==path
             assert sha(source)==before
+            count=len(list(Path(result['folder']).parent.iterdir()))
+            for bad in [{'batchSize':True},{'batchSize':'4'},{'batchSize':3},{'batchSize':8.0},{'batchSize':0},{'tta':'on'},{'tta':1}]:
+                try:jobs.submit(p['id'],{'engine':'pymss','mode':'pipeline',**bad})
+                except ValueError:pass
+                else:raise AssertionError('Invalid inference option accepted: '+str(bad))
+            assert len(list(Path(result['folder']).parent.iterdir()))==count,'Invalid options created run directories'
+            jobs.update(jobs.JOBS[job['id']],status='cancelled')
+            for batch,tta,resume in [(8,True,False),(4,False,False),(4,True,True)]:
+                retried=jobs.submit(p['id'],{'engine':'pymss','mode':'pipeline','songModel':'deux','harmonyModel':'bs-frazer','quality':'high','batchSize':batch,'tta':tta,'resumeFrom':job['id']})
+                assert bool(retried.get('resumedFrom'))==resume
+                deadline=time.monotonic()+15
+                while jobs.JOBS[retried['id']]['status'] in ('running','queued') and time.monotonic()<deadline:time.sleep(.05)
+                finished=jobs.public(jobs.JOBS[retried['id']]);assert finished['status']=='completed',finished
+                assert len(finished['metrics'])==(1 if resume else 2)
+            registered={k:v['path'] for k,v in assets.status(p['id'])['assets'].items()}
+            failed=jobs.submit(p['id'],{'engine':'pymss','mode':'pipeline','batchSize':16,'tta':False})
+            deadline=time.monotonic()+15
+            while jobs.JOBS[failed['id']]['status'] in ('running','queued') and time.monotonic()<deadline:time.sleep(.05)
+            failure=jobs.public(jobs.JOBS[failed['id']]);assert failure['status']=='failed' and failure['failureCategory']=='capacity'
+            assert '显存不足' in failure['message'] and failure['metrics'][0]['status']=='failed'
+            assert {k:v['path'] for k,v in assets.status(p['id'])['assets'].items()}==registered,'Capacity failure changed registered stems'
+            settings.save({'separationSongModel':'deux','separationHarmonyModel':'bs-frazer','separationQuality':'balanced','separationBatchSize':'8','separationTta':'on'})
+            assert jobs.capabilities()['defaults']=={'songModel':'deux','harmonyModel':'bs-frazer','quality':'balanced','batchSize':8,'tta':True}
+            for bad in [{'separationSongModel':'bs-frazer'},{'separationBatchSize':'3'},{'separationTta':'true'}]:
+                try:settings.save(bad)
+                except ValueError:pass
+                else:raise AssertionError('Invalid defaults accepted')
         # Installed-App layout: active runtime and modelDir win over bootstrap defaults.
         app=root/'Installed App';data=root/'App Data';app.mkdir();save_json(app/'python-runtime/runtime-envs/active-runtime.json',{'pythonPath':sys.executable,'overlayPath':'overlay'})
         save_json(data/'settings/app.json',{'modelDir':str(models)})

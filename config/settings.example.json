@@ -14,5 +14,10 @@
   "pymssPython": "",
   "pymssModels": "",
   "pymssDataRoot": "",
-  "separationEngine": "pymss"
+  "separationEngine": "pymss",
+  "separationSongModel": "deux",
+  "separationHarmonyModel": "bs-frazer",
+  "separationQuality": "high",
+  "separationBatchSize": "4",
+  "separationTta": "off"
 }

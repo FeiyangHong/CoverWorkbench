@@ -3,9 +3,11 @@ from pathlib import Path
 import hashlib,json,os,sys
 ROOT=Path(__file__).resolve().parents[2];sys.path.insert(0,str(ROOT/'app'));sys.path.insert(0,str(ROOT/'integrations/msst'))
 from separation_metrics import StageMeter
+from separation_options import batch_size,tta as validate_tta
 from worker import watch_parent,watch_cancel
 
 def run(request):
+    selected_batch=batch_size(request.get('inferenceParams',{}).get('batch_size',1));use_tta=validate_tta(request.get('tta',False))
     source_root=Path(request.get('sourceRoot') or '.')
     if (source_root/'pymss/__init__.py').is_file():sys.path.insert(0,str(source_root))
     if request.get('overlay'):sys.path.insert(0,request['overlay'])
@@ -24,8 +26,8 @@ def run(request):
             params={'batch_size':1,**request.get('inferenceParams',{})}
             if request.get('overlapFraction') is not None:
                 chunk=int(config['audio']['chunk_size']);params.update(chunk_size=chunk,overlap_size=int(chunk*float(request['overlapFraction'])))
-            meter.row.update(pymssVersion=importlib.metadata.version('pymss'),torchVersion=torch.__version__,batchSize=1,tta=False,modelConfig=config.get('inference',{}),inferenceOverrides=params)
-            separator=MSSeparator(model_type=step['modelType'],model_path=step['model'],config_path=step['config'],device='cuda' if torch.cuda.is_available() else 'cpu',device_ids=[0],use_tta=False,output_format='wav',store_dirs={stem:step['folders'][role] for stem,role in step['stems'].items()},audio_params={'wav_bit_depth':'FLOAT'},inference_params=params)
+            meter.row.update(pymssVersion=importlib.metadata.version('pymss'),torchVersion=torch.__version__,batchSize=selected_batch,tta=use_tta,modelConfig=config.get('inference',{}),inferenceOverrides=params)
+            separator=MSSeparator(model_type=step['modelType'],model_path=step['model'],config_path=step['config'],device='cuda' if torch.cuda.is_available() else 'cpu',device_ids=[0],use_tta=use_tta,output_format='wav',store_dirs={stem:step['folders'][role] for stem,role in step['stems'].items()},audio_params={'wav_bit_depth':'FLOAT'},inference_params=params)
             try:
                 meter.loaded();success=separator.process_folder(str(source))
                 if not success:raise RuntimeError('PyMSS did not process the input')
@@ -40,7 +42,7 @@ def run(request):
                     with Path(value).open('rb') as stream:
                         while chunk:=stream.read(1048576):h.update(chunk)
                     return h.hexdigest()
-                checkpoint={'engine':'pymss','overlapFraction':request.get('overlapFraction'),'completedSteps':index+1,'inputSHA256':request.get('inputSHA256'),'models':request.get('modelStamps'),'outputs':{k:{'path':v,'sha256':digest(v)} for k,v in results.items()}}
+                checkpoint={'engine':'pymss','batchSize':selected_batch,'tta':use_tta,'overlapFraction':request.get('overlapFraction'),'completedSteps':index+1,'inputSHA256':request.get('inputSHA256'),'models':request.get('modelStamps'),'outputs':{k:{'path':v,'sha256':digest(v)} for k,v in results.items()}}
                 temp=folder/'Checkpoint.tmp';temp.write_text(json.dumps(checkpoint),encoding='utf8');os.replace(temp,folder/'Checkpoint.json')
             finally:separator.close()
     temp=Path(request['result']).with_suffix('.tmp');temp.write_text(json.dumps(results),encoding='utf8');os.replace(temp,request['result'])

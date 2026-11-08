@@ -17,6 +17,7 @@ import project_assets
 import settings
 import workspaces
 import pymss_backend
+import separation_options
 
 LOCK = threading.RLock()
 POOL = ThreadPoolExecutor(max_workers=1, thread_name_prefix='msst')
@@ -92,8 +93,9 @@ def capabilities():
     selected=settings.load().get('separationEngine','pymss')
     if not engines[selected]['available'] and engines['msst']['available']:selected='msst'
     current=engines[selected]
-    models=current['models'] if selected=='msst' else {stage:{'name':pymss_backend.PRESETS[key]['name'],'available':current['models'][key]['available']} for stage,key in [('song','big7'),('harmony','bs-frazer')]}
-    return {**current,'engine':selected,'engines':engines,'models':models}
+    defaults=separation_options.defaults(settings.load())
+    models=current['models'] if selected=='msst' else {stage:{'name':pymss_backend.PRESETS[key]['name'],'available':current['models'][key]['available']} for stage,key in [('song',defaults['songModel']),('harmony',defaults['harmonyModel'])]}
+    return {**current,'engine':selected,'engines':engines,'models':models,'defaults':defaults}
 
 
 def public(job):
@@ -143,11 +145,17 @@ def submit(ident, body):
         if engine not in ('msst','pymss'):raise ValueError('请选择 PyMSS 或旧 MSST 引擎')
         install, runtime, models = pymss_backend.installation() if engine=='pymss' else installation()
         stages = ['song', 'harmony'] if mode == 'pipeline' else [mode]
-        song_model=body.get('songModel','big7');harmony_model=body.get('harmonyModel','bs-frazer')
-        quality=body.get('quality','high')
+        defaults=separation_options.defaults(settings.load())
+        song_model=body.get('songModel',defaults['songModel']);harmony_model=body.get('harmonyModel',defaults['harmonyModel'])
+        quality=body.get('quality',defaults['quality'])
+        batch_size=separation_options.batch_size(body.get('batchSize',defaults['batchSize'])) if engine=='pymss' else None
+        tta=separation_options.tta(body.get('tta',defaults['tta'])) if engine=='pymss' else None
         if quality not in ('high','balanced','model'):raise ValueError('请选择高质量、平衡或模型默认参数')
         if engine=='msst' and any(PROFILES[s][0] not in models for s in stages):
             raise ValueError('缺少此流程需要的模型 / 配置，请在自己的 MSST 中安装后再试')
+        # Validate model choices before creating a run directory.
+        if engine=='pymss':
+            for stage in stages:pymss_backend.step(song_model if stage=='song' else harmony_model,stage,models)
         root = workspaces.outputs(p)
         number = 1
         while True:
@@ -162,7 +170,7 @@ def submit(ident, body):
         owned = folder / 'input' / ('Input' + source.suffix.lower())
         owned.parent.mkdir()
         job = {'id': uuid.uuid4().hex, 'musicId': ident, 'mode': mode, 'harmonyInput': harmony_input, 'inputRole': role, 'status': 'queued', 'folder': str(folder),
-               'created': time.time(), 'engine':engine,'quality':quality,'songModel':song_model,'harmonyModel':harmony_model,'input': str(source), 'inputInfo': info, 'ownedInput': str(owned),
+               'created': time.time(), 'engine':engine,'quality':quality,'batchSize':batch_size,'tta':tta,'songModel':song_model,'harmonyModel':harmony_model,'input': str(source), 'inputInfo': info, 'ownedInput': str(owned),
                'baseline': {k: v['path'] for k, v in current.items()}, 'message': '正在准备输入副本', 'outputs': {},
                'cancel': threading.Event()}
         for index, stage in enumerate(stages):
@@ -175,6 +183,7 @@ def submit(ident, body):
                                      'stems': stems, 'folders': folders})
         request['engine']=engine
         if engine=='pymss':
+            request.update(inferenceParams={'batch_size':batch_size},tta=tta)
             env=pymss_backend.environment();request['sourceRoot']=str(env['directory'] or '')
             request['overlay']=env.get('overlay')
             if quality!='model':request['overlapFraction']=.875 if quality=='high' else .5
@@ -184,7 +193,7 @@ def submit(ident, body):
             checkpoint=Path(old['folder'])/'Checkpoint.json' if old else None
             if checkpoint and checkpoint.is_file():
                 data=read_json(checkpoint);outputs=data.get('outputs',{})
-                if data.get('completedSteps',0)>=1 and data.get('engine','msst')==engine and data.get('overlapFraction')==request.get('overlapFraction') and data.get('inputSHA256')==sha(source) and data.get('models',[None])[0]==model_stamp(request['steps'][0]) and set(outputs)>={'vocals','accompaniment'}:
+                if data.get('completedSteps',0)>=1 and data.get('engine','msst')==engine and data.get('overlapFraction')==request.get('overlapFraction') and (engine!='pymss' or (data.get('batchSize',1)==batch_size and data.get('tta',False)==tta)) and data.get('inputSHA256')==sha(source) and data.get('models',[None])[0]==model_stamp(request['steps'][0]) and set(outputs)>={'vocals','accompaniment'}:
                     for role in ['vocals','accompaniment']:
                         f=Path(outputs[role]['path'])
                         if not f.is_file() or not f.resolve().is_relative_to(Path(old['folder']).resolve()) or sha(f)!=outputs[role]['sha256']:raise ValueError('已完成分离步骤的输出已改变，无法复用；请重新分离')
@@ -275,7 +284,14 @@ def _run(job, runtime, install):
             update(job, status='completed', outputs=result, skipped=skipped,metrics=metrics,
                    message='分离完成，已自动登记素材' if not skipped else '分离完成；运行中手动改过的素材路径已保留，请在结果中查看')
     except Exception as exc:
-        update(job, status='failed', message=str(exc))
+        folder=Path(job['folder'])
+        try:metrics=read_json(folder/'Metrics.json') if (folder/'Metrics.json').is_file() else []
+        except (OSError,ValueError):metrics=[]
+        try:log=(folder/'msst.log').read_text(encoding='utf8',errors='replace')[-1000000:]
+        except OSError:log=''
+        capacity='out of memory' in log.lower() or 'cuda_error_out_of_memory' in log.lower()
+        message='显存不足；本次结果未登记。请降低 batch size 后重试，已有素材保留。' if capacity else str(exc)
+        update(job, status='failed', message=message,metrics=metrics,failureCategory='capacity' if capacity else 'runtime')
 
 
 def cancel(ident, body):

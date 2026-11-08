@@ -16,6 +16,8 @@ DEFAULTS = {
     'lyricCache': str(Path(os.environ.get('APPDATA', str(Path.home() / '.config'))) / 'MusicLyricApp/cache'),
     'msstUrl': 'http://127.0.0.1:7860', 'msstLauncher': '', 'msstDirectory': '', 'msstPython': '',
     'pymssPython':'','pymssModels':'','pymssDirectory':'','pymssDataRoot':'','separationEngine':'pymss',
+    'separationSongModel':'deux','separationHarmonyModel':'bs-frazer','separationQuality':'high',
+    'separationBatchSize':'4','separationTta':'off',
 }
 
 
@@ -46,6 +48,14 @@ def save(body):
         value = value.strip().strip('"“”')
         if any(c in value for c in '\x00\r\n'):
             raise ValueError('Paths must not contain control characters')
+        if key in ('separationSongModel','separationHarmonyModel','separationQuality','separationBatchSize','separationTta'):
+            import separation_options
+            choices={'separationSongModel':separation_options.SONG_MODELS,'separationHarmonyModel':separation_options.HARMONY_MODELS,
+                     'separationQuality':('high','balanced','model'),'separationBatchSize':tuple(map(str,separation_options.BATCH_SIZES)),
+                     'separationTta':('on','off')}
+            if value not in choices[key]:raise ValueError('无效的分离默认参数：'+key)
+            values[key]=value
+            continue
         if key=='separationEngine':
             if value not in ('pymss','msst'):raise ValueError('请选择 PyMSS 或旧 MSST')
             values[key]=value

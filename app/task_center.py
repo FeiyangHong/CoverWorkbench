@@ -140,7 +140,7 @@ def action(key,body):
         old=video_jobs.job(ident);return video_jobs.submit(selected['project'],{'kind':old['kind'],**old.get('spec',{})})
     if origin=='separation':
         old=next(j for j in separation_jobs.history(selected['project']) if j['id']==ident)
-        return separation_jobs.submit(selected['project'],{'mode':old['mode'],'harmonyInput':old['harmonyInput'],'input':old['input'],'resumeFrom':ident,'engine':old.get('engine','msst'),'quality':old.get('quality','high'),'songModel':old.get('songModel','big7'),'harmonyModel':old.get('harmonyModel','bs-frazer')})
+        return separation_jobs.submit(selected['project'],{'mode':old['mode'],'harmonyInput':old['harmonyInput'],'input':old['input'],'resumeFrom':ident,'engine':old.get('engine','msst'),'quality':old.get('quality','high'),'songModel':old.get('songModel','big7'),'harmonyModel':old.get('harmonyModel','bs-frazer'),'batchSize':old.get('batchSize') or 1,'tta':bool(old.get('tta',False))})
     if origin=='package':
         old=project_tasks.get(ident);request=old.get('request')
         if not request:raise ValueError('旧任务未保存参数，请在工程管理中重新选择')

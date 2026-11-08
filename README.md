@@ -103,7 +103,7 @@ cd CoverWorkbench
 2. 在 **导入工程** 中选择已保存的 SVP，填写标题与语言。也可直接使用 Studio One 建工程页。
 3. 在 **项目主页** 选择下一步：分离素材、打开 SV、继续已有 Song 或进入本曲视频。用 **管理文件路径** 登记主声、伴奏与成品混音，后续步骤自动读取。
 
-**素材分离** 页支持已安装的 **PyMSS Studio App** 和 **PyMSS 源码环境**，读取活动 Python 与模型目录，共享模型库，不修改 App 的 Python/Torch。可选择 Big7、DeUX、HyperACE、Leap Xe 和 Karaoke 模型，按需联网准备缺少的权重；默认采用 87.5% 重叠、batch 1、关闭 TTA。旧 **MSST** 仍可切换使用，也保留启动、跳转及页内打开。分离仅在发起任务时加载模型。详见 [PyMSS 接入、模型与试听](docs/PyMSS.md)。
+**素材分离** 页支持已安装的 **PyMSS Studio App** 和 **PyMSS 源码环境**，读取活动 Python 与模型目录，共享模型库，不修改 App 的 Python/Torch。可选择 Big7、DeUX、HyperACE、Leap Xe 和 Karaoke 模型，按需联网准备缺少的权重；默认采用 DeUX → Frazer、87.5% 重叠、batch 4、TTA 关闭，可选择 batch size 和 TTA，并保存自己的默认参数。旧 **MSST** 仍可切换使用，也保留启动、跳转及页内打开。分离仅在发起任务时加载模型。详见 [PyMSS 接入、模型与试听](docs/PyMSS.md)。
 
 歌词素材页负责搜词、导入与罗马音准备；正式双语字幕在视频区调整。旧的音符校对、模型对比、网页 SV 遥控与字幕草稿默认隐藏，可在项目主页 **更多工具与历史功能** 中显式启用。正常流程不轮询 SV 实时连接。
 

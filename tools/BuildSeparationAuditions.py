@@ -11,13 +11,16 @@ def main():
     if list((base/'working/sv').glob('*.svp')):raise ValueError('已有试听工程，拒绝覆盖；请先选择新的对比工程副本目录')
     import numpy as np,soundfile as sf
     doc=read_json(base/'analysis/Benchmark.json');songs=doc['songs'];results=doc['results'];rate=44100
-    required_failures=[f for f in doc.get('failures',[]) if f.get('modelId')!='unmixx']
+    # A measured capacity limit is an experiment result, not missing promised audio.
+    # Keep it in the report; only successfully rendered stems enter the auditions.
+    required_failures=[f for f in doc.get('failures',[]) if f.get('modelId')!='unmixx' and f.get('category')!='capacity']
     if required_failures:raise ValueError('常规模型仍有失败，请先重新运行缺少的模型再生成试听工程；已有文件保持不变')
     plan=read_json(base/'analysis/Plan.json') if (base/'analysis/Plan.json').is_file() else {'songs':[]}
     for song in songs:
         source=next((s for s in plan['songs'] if s['id']==song['id']),{})
         song['displayName']=source.get('displayName',song['label'])
     for row in results:
+        if row.get('inputAudio'):continue
         if row.get('kind')=='song':row['inputAudio']=next(s['original'] for s in songs if s['id']==row['song'])
         elif row.get('kind') in ('harmony','singers'):
             baseline=next((r for r in results if r['song']==row['song'] and r['modelId']=='big7'),None)
@@ -98,17 +101,22 @@ def main():
                 for role,file in row['matched' if matched else 'outputs'].items():
                     tracks.append(track(labels.get(role,role)+' · '+row['name'],len(tracks),'sv1',base/file,song['duration'],muted=True));tracks[-1]['dispColor']=colors.get(role,'ff8c71ce')
             save_json(folder/(song['label']+(' - Matched.svp' if matched else ' - Raw.svp')),document(tracks,song['bpm']))
-    fields=['song','model','engine','input','audioSeconds','wallSeconds','modelLoadSeconds','inferenceAndWriteSeconds','cudaPeakAllocatedMiB','cudaPeakReservedMiB','devicePeakMemoryMiB','deviceMemoryStartMiB']
+    reports=base/'exports/reports';reports.mkdir(parents=True,exist_ok=True)
+    fields=['song','model','engine','input','batchSize','tta','audioSeconds','wallSeconds','modelLoadSeconds','inferenceAndWriteSeconds','cudaPeakAllocatedMiB','cudaPeakReservedMiB','devicePeakMemoryMiB','deviceMemoryStartMiB']
     with (base/'exports/reports/Performance.csv').open('w',encoding='utf-8-sig',newline='') as stream:
-        writer=csv.writer(stream);writer.writerow(['歌曲','模型','引擎','输入','音频时长 (s)','整任务耗时 (s)','模型加载 (s)','推理和写盘 (s)','CUDA 分配峰值 (MiB)','CUDA 保留峰值 (MiB)','设备总峰值 (MiB)','设备起始 (MiB)'])
+        writer=csv.writer(stream);writer.writerow(['歌曲','模型','引擎','输入','Batch size','TTA','音频时长 (s)','整任务耗时 (s)','模型加载 (s)','推理和写盘 (s)','CUDA 分配峰值 (MiB)','CUDA 保留峰值 (MiB)','设备总峰值 (MiB)','设备起始 (MiB)'])
         for row in results:
             record={k:row['metrics'].get(k,'') for k in fields};record.update(song=next(s['displayName'] for s in songs if s['id']==row['song']),model=row['name'],engine=row['engine'],input=row['inputRole'],audioSeconds=row['audioSeconds'],wallSeconds=row['wallSeconds']);writer.writerow([round(record[k],2) if isinstance(record[k],(float,int)) else record[k] for k in fields])
+    if doc.get('failures'):
+        with (reports/'Failures.csv').open('w',encoding='utf-8-sig',newline='') as stream:
+            writer=csv.writer(stream);writer.writerow(['歌曲','模型 / 设置','失败类型','日志'])
+            for row in doc['failures']:writer.writerow([row['song'],row.get('name',row['modelId']),row.get('category','runtime'),row.get('error','')])
     protected=read_json(base/'analysis/Protected Sources.json');changed=[p for p,h in protected.items() if not Path(p).is_file() or sha(Path(p))!=h]
     if changed:raise ValueError('Protected source changed outside this comparison: '+str(changed))
     doc['sourceValidation']=read_json(base/'analysis/Source Validation.json') if (base/'analysis/Source Validation.json').is_file() else {}
     doc.update(status='completed',current='',svp=str(folder/'Model Comparison.svp'),timeline=timeline,levelMatching='Whole-song RMS per same-role group, same target per song; shared sample-peak ceiling -3 dBFS. PCM24 audition derivatives; original float stems retained.',verified={'protectedFiles':len(protected),'changed':0,'results':len(results),'frames':total_frames,'sampleRate':rate})
     save_json(base/'analysis/Benchmark.json',doc)
-    lines=['# 模型对比试听','', '打开 `working/sv/Model Comparison.svp`：三首歌依次排列，模型轨道严格对齐。','', '默认只打开原曲轨。先将原曲 M 静音，再取消需要试听轨的 M；需要用 S 独听时，请先取消该轨的 M。每次只听一条，避免重复叠加。','', '配平版按每首歌、同类声部的整体 RMS 匹配，保留公共 -3 dBFS 样本峰值余量；不是 EBU 响度标准化。Raw 工程保留模型原始电平。','', '统一 batch 1、87.5% 重叠、关闭 TTA。数值是单次本机实测，不是多轮平均；设备显存包含其他软件。和声模型统一输入 PyMSS Big7 人声。','', '主声/和声表示声部分离，不等于按歌手身份分轨。没有真实干净分轨参考，不计算 SDR 或自动排名。','', '## 时间导航','']
+    lines=['# 模型对比试听','', '打开 `working/sv/Model Comparison.svp`：歌曲依次排列，模型轨道严格对齐。','', '默认只打开原曲轨。先将原曲 M 静音，再取消需要试听轨的 M；需要用 S 独听时，请先取消该轨的 M。每次只听一条，避免重复叠加。','', '配平版按每首歌、同类声部的整体 RMS 匹配，保留公共 -3 dBFS 样本峰值余量；不是 EBU 响度标准化。Raw 工程保留模型原始电平。','', doc.get('method','具体 batch、TTA、重叠和输入以 Benchmark.json 各条测量记录为准。'),'', '耗时为单次本机实测，不是多轮平均；设备显存包含其他软件。失败项留在报告中，不生成虚假的试听轨道。','', '主声/和声表示声部分离，不等于按歌手身份分轨。没有真实干净分轨参考，不计算 SDR 或自动排名。','', '## 时间导航','']
     lines += [f"- {x['name']}：{int(x['start']//60):02}:{x['start']%60:06.3f} — {int(x['end']//60):02}:{x['end']%60:06.3f}" for x in timeline]
     lines += ['', '也可打开同目录下每首歌单独的 Matched / Raw 工程；所有引用均指向此对比目录，不引用或更改原音乐工程。', '', '网页入口：工作台 → 素材分离 → 模型对比试听。', '', '测量表：`exports/reports/Performance.csv`；详细配置、显存与原文件校验：`analysis/Benchmark.json`、`analysis/Protected Sources.json`。']
     (base/'Read Me.md').write_text('\n'.join(lines)+'\n',encoding='utf8')
