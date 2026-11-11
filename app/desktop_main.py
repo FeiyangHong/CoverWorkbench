@@ -55,7 +55,10 @@ def ensure_service(root,port):
 
 class Bridge:
     def __init__(self,base,instance,owned):self._base=base;self._instance=instance;self._owned=owned;self._window=None;self._allow_close=False;self._close_pending=threading.Lock()
-    def info(self):return {'desktop':True,'serviceOwned':self._owned,'url':self._base,'engine':'WebView2','sharedWorkspace':True}
+    def info(self):
+        file=Path(sys.executable).parent/'Build Info.json' if getattr(sys,'frozen',False) else Path(__file__).resolve().parents[1]/'Build Info.json'
+        build=json.loads(file.read_text(encoding='utf8')) if file.exists() else {'revision':'source'}
+        return {'desktop':True,'serviceOwned':self._owned,'url':self._base,'engine':'WebView2','sharedWorkspace':True,'build':build}
     def open_browser(self):webbrowser.open(self._base);return True
     def close_window(self):
         self._allow_close=True

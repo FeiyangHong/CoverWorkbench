@@ -166,3 +166,7 @@ New songs use readable folders directly under `projects/Artist - Song/`, without
 Start from original audio, an empty song workspace, or an existing SVP. Big7 is the default first step; optionally run karaoke on full vocals or the original recording. Readable stem names and versioned SV1/SV2 starter sessions keep handoffs organized. Note extraction and voice selection remain in Synthesizer V; see the [production guide](docs/Production.md).
 
 Video Studio supports an owned media library, zoom-adaptive filmstrips, up to eight picture tracks with opaque layer ordering and visibility, video/image drag placement, independent final-mix and bilingual caption clocks, undo/redo, interval previews and full exports. Existing projects can explicitly enable editing or use a separate edit copy while preserving captions, styles and alignment. See the [Video Studio guide](docs/VideoStudio.md).
+
+### Production support
+
+The main **制作助手** panel provides sequential separation queues with real stage progress, stable native-file handoffs, audio-only video mix updates that preserve captions and offsets, non-destructive music delivery checks, incremental cross-drive backups with restore into new projects, and desktop/backend/browser version status. The default recipe remains DeUX → Frazer, 87.5% overlap, batch 4, TTA off. See the [usage guide (Chinese)](docs/ProductionSupport.md). Scheduled backups run only while the workbench service is running.

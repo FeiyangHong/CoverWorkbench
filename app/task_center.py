@@ -8,7 +8,7 @@ import lifecycle,video_project,video_jobs,separation_jobs,project_tasks,native_a
 
 LOCK=threading.RLock();JOBS={};POOL=ThreadPoolExecutor(max_workers=2,thread_name_prefix='studio-tools')
 BASE=ROOT/'runtime/studio-tasks'
-NAMES={'download':'视频下载','export':'完整导出','preview':'准确预览','analyze':'音频分析','pipeline':'两步素材分离','song':'人声与伴奏分离','harmony':'主声与和声分离','pack':'工程打包','import':'工程导入','preflight':'成片检查','proxy':'网页代理','diagnostic':'环境诊断','delivery':'音频交付','video':'视频交付','native':'插件试听','pymss-models':'PyMSS 模型准备'}
+NAMES={'audio-check':'音乐交付检查','backup':'增量备份','verify-backup':'备份校验','restore-backup':'恢复为新工程','download':'视频下载','export':'完整导出','preview':'准确预览','analyze':'音频分析','pipeline':'两步素材分离','song':'人声与伴奏分离','harmony':'主声与和声分离','pack':'工程打包','import':'工程导入','preflight':'成片检查','proxy':'网页代理','diagnostic':'环境诊断','delivery':'音频交付','video':'视频交付','native':'插件试听','pymss-models':'PyMSS 模型准备'}
 
 def public(j):return copy.deepcopy({k:v for k,v in j.items() if k!='cancel'})
 def update(j,**values):
@@ -87,14 +87,17 @@ def error_help(message):
 
 def all_jobs():
     rows=[]
+    import production_support
     music=read_json(ROOT/'config/projects.json') if (ROOT/'config/projects.json').exists() else [];titles={p['id']:p['title'] for p in music}
     def add(origin,job,title='',project=None):
         j=copy.deepcopy(job);status={'ready':'completed','error':'failed'}.get(j['status'],j['status']);kind=j.get('kind') or j.get('mode') or j.get('action') or 'native'
-        rows.append({'key':origin+':'+j['id'],'origin':origin,'id':j['id'],'name':NAMES.get(kind,kind),'kind':kind,'project':project or j.get('project') or j.get('musicId') or j.get('pid'),'title':title,'status':status,'created':j.get('created',j.get('createdAt',0)),'progress':j.get('progress',100 if status=='completed' else 0),'stage':j.get('stage') or j.get('message') or status,'error':j.get('error') or (j.get('message') if status in ('failed','interrupted') else ''),'help':error_help(j.get('error') or j.get('message')),'folder':j.get('folder') or j.get('outputDir'),'cancelable':status in ('queued','running'),'retryable':status in ('failed','cancelled','interrupted'),'resultSummary':{'issueCount':len((j.get('result') or {}).get('issues',[]))},'spec':j.get('spec')})
+        rows.append({'key':origin+':'+j['id'],'origin':origin,'id':j['id'],'name':NAMES.get(kind,kind),'kind':kind,'project':project or j.get('project') or j.get('musicId') or j.get('pid'),'title':title,'status':status,'created':j.get('created',j.get('createdAt',0)),'progress':j.get('progress',100 if status=='completed' else 0),'stage':j.get('stage') or j.get('message') or status,'error':j.get('error') or (j.get('message') if status in ('failed','interrupted') else ''),'help':error_help(j.get('error') or j.get('message')),'folder':j.get('folder') or j.get('outputDir'),'cancelable':status in ('queued','running'),'retryable':status in ('failed','cancelled','interrupted'),'resultSummary':{'issueCount':len((j.get('result') or {}).get('issues',[])),'projectId':(j.get('result') or {}).get('id'),'outputFolder':(j.get('result') or {}).get('folder') or (j.get('result') or {}).get('root')},'spec':j.get('spec')})
     for v in video_project.listing():
         for j in video_jobs.history(v['id']):add('video',j,v['name'])
     for p in music:
         for j in separation_jobs.history(p['id']):add('separation',j,p['title'])
+    if ROOT==production_support.ROOT:
+        for j in production_support.history():add('support',j,j.get('title',''))
     for f in project_tasks.BASE.glob('Task */Task.json'):
         try:j=read_json(f);add('package',project_tasks.get(j['id']),titles.get(j.get('project'),j.get('project') if not str(j.get('project','')).startswith('song-') else '工程'))
         except (OSError,ValueError,KeyError):continue
@@ -132,6 +135,9 @@ def action(key,body):
         if origin=='package':return project_tasks.cancel(ident)
         if origin=='native':return native_audio.cancel(ident)
         if origin=='delivery':return workflow.cancel(ident)
+        if origin=='support':
+            import production_support
+            return production_support.cancel(ident)
         with LOCK:
             if ident not in JOBS:raise ValueError('任务属于上次会话')
             JOBS[ident]['cancel'].set();return public(JOBS[ident])
@@ -145,6 +151,9 @@ def action(key,body):
         old=project_tasks.get(ident);request=old.get('request')
         if not request:raise ValueError('旧任务未保存参数，请在工程管理中重新选择')
         return project_tasks.submit(old['scope'],old['project'],request)
+    if origin=='support':
+        import production_support
+        old=production_support.own(ident);return production_support.submit(old['project'],old['request'])
     if origin=='native':
         import shutil
         old=native_audio.CACHE/ident

@@ -9,7 +9,7 @@ import project_tasks as tasks
 import project_assets,workspaces,video_project,video_edit,daw,asset_storage,relocation,media_names
 
 SCHEMA=1
-MEDIA={'.wav','.flac','.mp3','.m4a','.aif','.aiff','.ogg','.mp4','.mkv','.webm','.mov','.avi','.png','.jpg','.jpeg','.webp','.svp','.song','.srt','.ass','.lrc','.txt'}
+MEDIA={'.wav','.flac','.mp3','.m4a','.aif','.aiff','.ogg','.mp4','.mkv','.webm','.mov','.avi','.png','.jpg','.jpeg','.webp','.svp','.song','.srt','.ass','.lrc','.txt','.preset','.vstpreset','.envelopex'}
 EXCLUDE={'cache','jobs','tasks','trash','recovery','modelhub','models','.git','__pycache__','.venv','node_modules'}
 REF_KEYS={'path','filename','filePath','original','preview','svp','managedSVP','working','sv2Working','song','sourceSVP','sourceAudio','audio','video','file','snapshot','sourceFile','recordFile'}
 
@@ -192,6 +192,9 @@ def pack(job):
         doc=video_project.load(v['id']);fonts.update(style.get('font','') for style in doc.get('styles',{}).values())
         for cue in doc.get('cues',[]):fonts.update((cue.get(key) or {}).get('font','') for key in ['originalStyle','translationStyle'])
     manifest={'schema':SCHEMA,'virtualRoot':str(virtual),'metadata':metadata,'files':files,'warnings':sorted(set(warnings)),'requirements':{'software':['Synthesizer V (for SVP)','Studio One and the original plugins (for Song)','FFmpeg/FFprobe (for video rendering)'],'fonts':sorted(fonts-{''}),'note':'新设备需安装原有声库、插件与字体；模型和程序本体未打包。插件内部无法解析的外部素材需在原生软件中归集。'}}
+    if job.get('snapshotOnly'):
+        if any(sha(p)!=digest for p,digest in sources.items()):raise ValueError('源工程在备份期间改变，请保存后重试')
+        return {'stage':str(stage),'manifest':manifest}
     output=folder/generated(media_names.filename(context['title'],''),' - Project.cwpack');partial=output.with_suffix('.partial')
     with zipfile.ZipFile(partial,'w',zipfile.ZIP_DEFLATED,compresslevel=3) as z:
         z.writestr('Manifest.json',json.dumps(manifest,ensure_ascii=False))

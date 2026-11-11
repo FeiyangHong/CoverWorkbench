@@ -40,7 +40,7 @@ def main():
             if source.is_file() and source.stat().st_size<2_000_000:
                 dest=notices/name/str(file).replace('../','').replace('..\\','');dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(source,dest)
     (notices/'Packages.json').write_text(json.dumps(packages,indent=2),encoding='utf-8')
-    version=subprocess.check_output(['git','rev-parse','--short','HEAD'],cwd=ROOT).decode().strip();(target/'Build Info.json').write_text(json.dumps({'revision':version,'python':sys.version.split()[0],'platform':'windows-x64','content':'Public source and runtime only; no media, user config, model weights or native commercial plugins.'},indent=2),encoding='utf-8')
+    version=subprocess.check_output(['git','rev-parse','--short','HEAD'],cwd=ROOT).decode().strip();(target/'Build Info.json').write_text(json.dumps({'revision':version,'backendDigest':__import__('app_identity').digest(ROOT/'app','*.py'),'frontendDigest':__import__('app_identity').digest(ROOT/'app/static','*'),'python':sys.version.split()[0],'platform':'windows-x64','content':'Public source and runtime only; no media, user config, model weights or native commercial plugins.'},indent=2),encoding='utf-8')
     archive=out/'CoverWorkbench-Windows-x64.zip'
     with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
         for p in target.rglob('*'):

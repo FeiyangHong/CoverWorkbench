@@ -15,6 +15,7 @@ import video_preview
 import project_library
 import video_recovery,production_presets,release_versions,project_disk,project_tasks,project_context
 import task_center,publish_checks,asset_impact,deployment_tools
+import production_support,handoff_watch,audio_qc,app_identity
 live.prepare_manifest()
 
 PORT=int(os.environ.get("COVERWORKBENCH_PORT", "8765"))
@@ -125,6 +126,13 @@ class Handler(BaseHTTPRequestHandler):
             if parts[0]=='mix-audio' and len(parts)==3:return self.file(native_audio.media(parts[1],parts[2]))
             if path=='/api/projects':return self.respond(read_json(ROOT/'config/projects.json'))
             if path=='/api/task-center':return self.respond({'jobs':task_center.all_jobs()})
+            if path=='/api/version-status':return self.respond(app_identity.status(parse_qs(u.query).get('frontend',[None])[0]))
+            if path=='/runtime-version.js':
+                raw=('window.CWFrontendVersion='+json.dumps(app_identity.status()['frontend'])+';').encode();self.send_response(200);self.send_header('Content-Type','text/javascript');self.send_header('Content-Length',str(len(raw)));self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(raw);return
+            if path=='/api/production-support':return self.respond(production_support.status(parse_qs(u.query).get('project',[None])[0]))
+            if parts[:2]==['api','handoff-status'] and len(parts)==3:return self.respond(handoff_watch.scan(parts[2]) if production_support.config()['watchEnabled'] else {'changes':[]})
+            if path=='/api/separation-queue':return self.respond(separation_jobs.queue())
+            if parts[:1]==['audio-check-media'] and len(parts)==2:return self.file(production_support.audio_media(parts[1]))
             if parts[:2]==['api','studio-task'] and len(parts)==3:return self.respond(task_center.own(parts[2]))
             if parts[0]=='task-diagnostic' and len(parts)==2:return self.file(task_center.report_file(parts[1]),True)
             if parts[:2]==['api','publish-checks'] and len(parts)==3:return self.respond(publish_checks.latest(parts[2]))
@@ -197,6 +205,16 @@ class Handler(BaseHTTPRequestHandler):
             body=json.loads(self.rfile.read(size));parts=unquote(urlsplit(self.path).path).strip('/').split('/')
             if len(parts)!=3 or parts[0]!='api':return self.respond({'error':'Route not found'},404)
             action,pid=parts[1:]
+            if action=='production-config':return self.respond(production_support.configure(body))
+            if action=='production-task':return self.respond(production_support.submit(pid,body),202)
+            if action=='production-cancel':return self.respond(production_support.cancel(pid))
+            if action=='handoff-accept':return self.respond(handoff_watch.accept(pid,body))
+            if action=='handoff-video':return self.respond(handoff_watch.video_update(pid,body))
+            if action=='audio-check-ignore':return self.respond(audio_qc.ignore(pid,body))
+            if action=='separation-batch':return self.respond(separation_jobs.batch(body),202)
+            if action=='separation-recover':return self.respond(separation_jobs.recover(body),202)
+            if action=='defer-update':return self.respond(app_identity.defer(body))
+            if action=='cancel-update':return self.respond(app_identity.cancel())
             if action=='task-action':return self.respond(task_center.action(pid,body))
             if action=='studio-tools':return self.respond(task_center.submit(body),202)
             if action=='asset-impact':return self.respond(asset_impact.scan_video(pid) if body.get('scope')=='video' else asset_impact.scan_music(pid,body.get('record') is True,body.get('expected')))
@@ -342,14 +360,17 @@ if __name__=='__main__':
         workflow.start()
         print(f'CoverWorkbench http://127.0.0.1:{PORT}',flush=True)
         try:
+            production_support.start()
             server.serve_forever()
         finally:
             server.server_close()
+            production_support.STOP.set()
             native_audio.POOL.shutdown(wait=True)
             separation_jobs.POOL.shutdown(wait=True)
             video_jobs.POOL.shutdown(wait=True)
             project_tasks.POOL.shutdown(wait=True)
             task_center.POOL.shutdown(wait=True)
+            production_support.POOL.shutdown(wait=True)
             pidfile=ROOT/'runtime/server.pid'
             if pidfile.is_file() and pidfile.read_text().strip()==str(os.getpid()):
                 pidfile.unlink()

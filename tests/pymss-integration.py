@@ -35,7 +35,7 @@ class MSSeparator:
         (install/'pymss-2.3.4.dist-info').mkdir();(install/'pymss-2.3.4.dist-info/METADATA').write_text('Name: pymss\nVersion: 2.3.4\n')
         (install/'yaml.py').write_text('import json\nclass SafeLoader:\n @classmethod\n def add_constructor(cls,*a):pass\ndef load(s,**kw):return json.loads(s)\n')
         (install/'torch.py').write_text("__version__='fixture'\nclass cuda:\n @staticmethod\n def is_available():return False\n")
-        for relative in ['integrations/pymss/worker.py','integrations/msst/worker.py','app/separation_metrics.py','app/separation_options.py']:
+        for relative in ['integrations/pymss/worker.py','integrations/msst/worker.py','app/separation_metrics.py','app/separation_options.py','app/separation_progress.py']:
             dest=root/relative;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(REPO/relative,dest)
         registry={}
         for key,stems in [('big7',['vocals','other']),('deux',['Vocals','Instrumental']),('bs-frazer',['Vocals','Instrumental'])]:

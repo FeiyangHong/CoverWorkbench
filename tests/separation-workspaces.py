@@ -108,13 +108,16 @@ class MSSeparator:
             first = jobs.submit(ident, {'mode': 'pipeline'})
             assert not lifecycle.status()['canExit'] and lifecycle.status()['separations'] == 1
             try:
-                jobs.submit(other['id'], {'mode': 'song'})
+                jobs.submit(ident, {'mode': 'song'})
             except ValueError as exc:
-                assert '已有' in str(exc)
+                assert '队列' in str(exc)
             else:
-                raise AssertionError('Concurrent GPU task accepted')
+                raise AssertionError('Duplicate project accepted into the queue')
+            queued=jobs.submit(other['id'], {'mode':'song'})
+            assert queued['status']=='queued' and queued['queuePosition']>=1
             complete = wait(first)
             assert complete['status'] == 'completed', complete
+            second=wait(queued);assert second['status']=='completed' and second['startedAt']>=jobs.JOBS[first['id']]['startedAt']
             state = assets.status(ident)
             for role in ['vocals', 'accompaniment', 'lead', 'harmony']:
                 assert state['assets'][role]['exists']

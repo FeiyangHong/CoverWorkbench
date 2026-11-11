@@ -28,7 +28,7 @@ def describe(path):
 def busy():
     import lifecycle
     state=lifecycle.status()
-    if any(state[k] for k in ['videos','separations','auditions','deliveries']) or state.get('maintenance',0) or state.get('studioTasks',0):raise ValueError('请先等待后台任务完成，再进行磁盘操作')
+    if any(state[k] for k in ['videos','separations','auditions','deliveries']) or state.get('maintenance',0) or state.get('studioTasks',0) or state.get('supportTasks',0):raise ValueError('请先等待后台任务完成，再进行磁盘操作')
 
 
 def allowed(context):

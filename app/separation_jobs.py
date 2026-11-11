@@ -99,11 +99,22 @@ def capabilities():
 
 
 def public(job):
-    return copy.deepcopy({k: v for k, v in job.items() if k not in ['cancel', 'process']})
+    value=copy.deepcopy({k: v for k, v in job.items() if k not in ['cancel', 'process']})
+    if job.get('status')=='running':
+        from separation_progress import read
+        progress=read(job['folder'])
+        if progress:
+            value['workerProgress']=progress;value['progress']=min(98,progress['progress']);value['stage']=f"第 {progress['stageIndex']+1}/{progress['stageCount']} 步 · "+{'loading':'加载模型','inference':'分离中','writing':'整理输出','stage-completed':'阶段完成'}.get(progress['phase'],progress['phase'])
+    if job.get('status')=='queued':
+        queue=sorted((j for j in JOBS.values() if j['status']=='queued'),key=lambda j:j['created'])
+        value['queuePosition']=next((i+1 for i,j in enumerate(queue) if j['id']==job['id']),None)
+    if job.get('status')=='completed':value['progress']=100
+    return value
 
 
 def update(job, **fields):
     with LOCK:
+        if fields.get('status') in ('completed','cancelled','failed'):fields.setdefault('finishedAt',time.time())
         job.update(fields)
         save_json(Path(job['folder']) / 'job.json', public(job))
 
@@ -129,8 +140,8 @@ def history(ident):
 def submit(ident, body):
     with lifecycle.operation('提交素材分离'), LOCK:
         p = project_assets.project(ident)
-        if any(j['status'] in ['queued', 'running'] for j in JOBS.values()):
-            raise ValueError('已有工作台分离任务，请完成或取消后再开始，避免同时占用显存')
+        if any(j['status'] in ['queued','running'] and j['musicId']==ident for j in JOBS.values()):raise ValueError('这首歌已在分离队列中，请完成或取消后再添加')
+        if sum(j['status'] in ['queued','running'] for j in JOBS.values())>=20:raise ValueError('分离队列最多容纳 20 首歌')
         mode = body.get('mode', 'song')
         if mode not in ['song', 'pipeline', 'harmony']:
             raise ValueError('请选择完整人声 + 伴奏、两步分离，或主声 + 和声')
@@ -170,9 +181,9 @@ def submit(ident, body):
         owned = folder / 'input' / ('Input' + source.suffix.lower())
         owned.parent.mkdir()
         job = {'id': uuid.uuid4().hex, 'musicId': ident, 'mode': mode, 'harmonyInput': harmony_input, 'inputRole': role, 'status': 'queued', 'folder': str(folder),
-               'created': time.time(), 'engine':engine,'quality':quality,'batchSize':batch_size,'tta':tta,'songModel':song_model,'harmonyModel':harmony_model,'input': str(source), 'inputInfo': info, 'ownedInput': str(owned),
+               'created': time.time(), 'engine':engine,'quality':quality,'batchSize':batch_size,'tta':tta,'songModel':song_model,'harmonyModel':harmony_model,'input': str(source), 'inputInfo': info, 'inputStamp':[source.stat().st_size,source.stat().st_mtime_ns],'ownedInput': str(owned),
                'baseline': {k: v['path'] for k, v in current.items()}, 'message': '正在准备输入副本', 'outputs': {},
-               'cancel': threading.Event()}
+               'cancel': threading.Event(),'submittedModels':[model_stamp(pymss_backend.step(song_model if s=='song' else harmony_model,s,models)[0]) for s in stages] if engine=='pymss' else None}
         for index, stage in enumerate(stages):
             if engine=='pymss':
                 selected,stems=pymss_backend.step(song_model if stage=='song' else harmony_model,stage,models)
@@ -214,6 +225,7 @@ def run(job, runtime, install):
         if job['cancel'].is_set():raise InterruptedError('已取消，已有分离结果保留')
     try:
         with task_resources.claim(check,lambda:update(job,message='等待计算资源')):
+            check()
             return _run(job,runtime,install)
     except InterruptedError as error:update(job,status='cancelled',message=str(error))
 
@@ -221,8 +233,12 @@ def _run(job, runtime, install):
     process = None
     engine_name='PyMSS' if job.get('engine')=='pymss' else 'MSST'
     try:
-        update(job, status='running', message=f'准备输入副本；随后由本机 {engine_name} 模型分离')
+        with LOCK:
+            if job['cancel'].is_set():update(job,status='cancelled',message='已从等待队列移除');return
+            update(job, status='running', message=f'准备输入副本；随后由本机 {engine_name} 模型分离')
         source, owned = Path(job['input']), Path(job['ownedInput'])
+        if job.get('inputStamp') and [source.stat().st_size,source.stat().st_mtime_ns]!=job['inputStamp']:raise ValueError('排队期间输入文件已改变，请重新提交以使用新版本')
+        update(job,startedAt=time.time())
         before = sha(source)
         shutil.copy2(source, owned)
         if sha(owned) != before or sha(source) != before:
@@ -233,6 +249,7 @@ def _run(job, runtime, install):
             return
         folder = Path(job['folder'])
         request=read_json(folder/'request.json');request['inputSHA256']=before;request['modelStamps']=[model_stamp(s) for s in request['steps']]
+        if job.get('submittedModels') and job['submittedModels']!=request['modelStamps']:raise ValueError('排队期间模型或配置已改变，请重新提交')
         if job.get('resumeOutputs'):
             initial={}
             for role,value in job['resumeOutputs'].items():
@@ -294,6 +311,44 @@ def _run(job, runtime, install):
         message='显存不足；本次结果未登记。请降低 batch size 后重试，已有素材保留。' if capacity else str(exc)
         update(job, status='failed', message=message,metrics=metrics,failureCategory='capacity' if capacity else 'runtime')
 
+def queue():
+    rows=[];recoverable=[]
+    registry=read_json(ROOT/'config/projects.json')
+    for project in registry:
+        for job in history(project['id']):
+            job['title']=project['title']
+            if job['status'] in ('queued','running'):rows.append(job)
+        for file in (workspaces.root(project_assets.project(project['id']))/'separation').glob('Run */job.json'):
+            try:
+                job=read_json(file)
+                if job['status']=='queued' and job['id'] not in JOBS:recoverable.append({'id':job['id'],'project':project['id'],'title':project['title']})
+            except (OSError,ValueError,KeyError):continue
+    return {'jobs':sorted(rows,key=lambda j:j['created']),'recoverable':recoverable}
+
+def batch(body):
+    ids=body.get('projects')
+    if not isinstance(ids,list) or not 1<=len(ids)<=20 or len(set(ids))!=len(ids):raise ValueError('请选择 1–20 个不同音乐工程')
+    accepted=[];errors=[]
+    for ident in ids:
+        try:accepted.append(submit(ident,{k:v for k,v in body.items() if k not in ('projects','input')}))
+        except (ValueError,OSError) as error:errors.append({'project':ident,'error':str(error)})
+    return {'accepted':accepted,'errors':errors}
+
+def recover(body):
+    if body.get('confirm') is not True:raise ValueError('请确认恢复尚未开始的排队任务')
+    result=[];errors=[]
+    for row in queue()['recoverable']:
+        old=next(j for j in history(row['project']) if j['id']==row['id'])
+        try:
+            source=Path(old['input'])
+            if old.get('inputStamp') and old['inputStamp']!=[source.stat().st_size,source.stat().st_mtime_ns]:raise ValueError('等待期间输入已变化，请重新选择当前文件提交')
+            request=read_json(Path(old['folder'])/'request.json')
+            if old.get('submittedModels') and old['submittedModels']!=[model_stamp(s) for s in request['steps']]:raise ValueError('等待期间模型已变化，请重新提交')
+            result.append(submit(row['project'],{k:old[k] for k in ['mode','harmonyInput','input','engine','quality','songModel','harmonyModel','batchSize','tta'] if k in old}))
+            save_json(Path(old['folder'])/'job.json',{**old,'status':'interrupted','message':'已恢复为新排队任务','recoveredAs':result[-1]['id']})
+        except (OSError,ValueError,KeyError) as error:errors.append({'project':row['project'],'error':str(error)})
+    return {'accepted':result,'errors':errors}
+
 
 def cancel(ident, body):
     with LOCK:
@@ -302,4 +357,5 @@ def cancel(ident, body):
             raise ValueError('本次服务中未找到这首歌的任务')
         if job['status'] in ['queued', 'running']:
             job['cancel'].set()
+            if job['status']=='queued':update(job,status='cancelled',message='已从等待队列移除')
         return public(job)

@@ -48,7 +48,7 @@ def approved(name):
 
 def idle():
     state=lifecycle.status()
-    if any(state.get(k,0) for k in ['videos','separations','auditions','deliveries','maintenance','studioTasks']):raise ValueError('请先等待后台任务结束，再更新程序')
+    if any(state.get(k,0) for k in ['videos','separations','auditions','deliveries','maintenance','studioTasks','supportTasks']):raise ValueError('请先等待后台任务结束，再更新程序')
 
 def updates():
     base=ROOT/'work/Source Updates'
