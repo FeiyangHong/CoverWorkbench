@@ -10,7 +10,7 @@ import project_assets,workspaces,video_project,video_edit,daw,asset_storage,relo
 
 SCHEMA=1
 MEDIA={'.wav','.flac','.mp3','.m4a','.aif','.aiff','.ogg','.mp4','.mkv','.webm','.mov','.avi','.png','.jpg','.jpeg','.webp','.svp','.song','.srt','.ass','.lrc','.txt','.preset','.vstpreset','.envelopex'}
-EXCLUDE={'cache','jobs','tasks','trash','recovery','modelhub','models','.git','__pycache__','.venv','node_modules'}
+EXCLUDE={'cache','jobs','tasks','trash','recovery','modelhub','models','whisper_models','.cache','.git','__pycache__','.venv','node_modules'}
 REF_KEYS={'path','filename','filePath','original','preview','svp','managedSVP','working','sv2Working','song','sourceSVP','sourceAudio','audio','video','file','snapshot','sourceFile','recordFile'}
 
 
@@ -77,7 +77,26 @@ def song_ref(value,base,names):
 
 
 def pack(job):
-    context=contexts.get(job['scope'],job['project']);root=context['root'];folder=Path(job['folder']);stage=folder/'Working Copy';stage.mkdir()
+    folder=Path(job['folder']);stage=folder/'Working Copy';stage.mkdir()
+    retained=False
+    try:
+        result=_pack(job,stage)
+        retained=bool(job.get('snapshotOnly'))
+        return result
+    finally:
+        # Only a completed snapshot transfers staging ownership to the backup caller.
+        if not retained:remove_stage(stage,folder)
+
+
+def remove_stage(stage,folder):
+    stage=Path(stage);folder=Path(folder)
+    if stage.name!='Working Copy' or stage.parent.resolve()!=folder.resolve() or stage.is_symlink() or getattr(stage,'is_junction',lambda:False)():
+        raise ValueError('临时工程目录无效，拒绝清理')
+    if stage.exists():shutil.rmtree(stage)
+
+
+def _pack(job,stage):
+    context=contexts.get(job['scope'],job['project']);root=context['root'];folder=Path(job['folder'])
     virtual=Path(root.anchor)/'__COVERWORKBENCH_PROJECT__';mapping={str(root):str(virtual)};sources={};copied={};warnings=[]
     metadata={'scope':context['scope'],'title':context['title'],'videos':[]}
     if context['scope']=='music':
@@ -201,8 +220,6 @@ def pack(job):
         for i,name in enumerate(files):tasks.check(job);z.write(stage/name,'Project/'+name);tasks.update(job,stage=f'打包 · {i+1}/{len(files)}',progress=55+int((i+1)/len(files)*40))
     if any(sha(p)!=digest for p,digest in sources.items()):raise ValueError('源工程在打包期间改变，请保存后重试')
     partial.rename(output)
-    # Generated staging copies only. All user inputs remain read-only.
-    if stage.resolve().parent==folder.resolve():shutil.rmtree(stage)
     return {'path':str(output),'fileCount':len(files),'bytes':output.stat().st_size,'warnings':manifest['warnings'],'requirements':manifest['requirements'],'url':'/project-package/'+job['id']}
 
 

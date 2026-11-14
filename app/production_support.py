@@ -8,7 +8,7 @@ LOCK=threading.RLock();POOL=ThreadPoolExecutor(max_workers=1,thread_name_prefix=
 BASE=ROOT/'runtime/Production Support';CONFIG=ROOT/'config/production-support.local.json';STOP=threading.Event()
 KINDS={'audio-check':'音乐交付检查','backup':'增量备份','verify-backup':'备份校验','restore-backup':'恢复为新工程'}
 
-def config():return {'backupDirectory':'','backupEnabled':False,'intervalHours':24,'backupProjects':[],'watchEnabled':True,'lastScheduled':{},**(read_json(CONFIG) if CONFIG.exists() else {})}
+def config():return {'backupDirectory':'','backupEnabled':False,'intervalHours':24,'backupProjects':[],'watchEnabled':True,'lastScheduled':{},'backupFailures':{},**(read_json(CONFIG) if CONFIG.exists() else {})}
 
 def configure(body):
     allowed={'backupDirectory','backupEnabled','intervalHours','backupProjects','watchEnabled'}
@@ -20,7 +20,10 @@ def configure(body):
     if not isinstance(d['backupProjects'],list) or len(d['backupProjects'])>100 or any(p not in ids for p in d['backupProjects']):raise ValueError('请选择已有音乐工程')
     if d['backupDirectory']:d['backupDirectory']=str(project_backup.target(d['backupDirectory']))
     if d['backupEnabled'] and (not d['backupDirectory'] or not d['backupProjects']):raise ValueError('请先选择备份位置和工程')
-    with LOCK:save_json(CONFIG,d)
+    with LOCK:
+        current=config()
+        for key in ('lastScheduled','backupFailures'):d[key]=current[key]
+        save_json(CONFIG,d)
     return d
 
 def public(j):return copy.deepcopy({k:v for k,v in j.items() if k not in ('cancel','process')})
@@ -28,6 +31,20 @@ def update(j,**fields):
     with LOCK:j.update(fields);save_json(Path(j['folder'])/'Task.json',public(j))
 def check(j):
     if j['cancel'].is_set():raise InterruptedError('任务已取消，源工程保留')
+
+
+def backup_result(j,error=None):
+    if j['kind']!='backup':return
+    with LOCK:
+        d=config()
+        if error is None:d['backupFailures'].pop(j['project'],None)
+        else:d['backupFailures'][j['project']]={'at':time.time(),'error':str(error),'task':j['id']}
+        save_json(CONFIG,d)
+
+
+def backup_due(d,ident,last,now):
+    interval=d['intervalHours']*3600
+    return ident not in d.get('backupFailures',{}) and now-last>=interval and now-d['lastScheduled'].get(ident,0)>=interval
 
 def own(ident):
     with LOCK:
@@ -114,8 +131,11 @@ def run(j):
             elif kind=='verify-backup':result=project_backup.verify(j,directory,request['snapshot'])
             else:result=project_backup.restore(j,directory,request['snapshot'],request['name'])
             update(j,status='completed',stage='完成',progress=100,result=result)
+            backup_result(j)
     except InterruptedError as error:update(j,status='cancelled',stage='已取消',error=str(error))
-    except Exception as error:update(j,status='failed',stage='未完成',error=str(error))
+    except Exception as error:
+        backup_result(j,error)
+        update(j,status='failed',stage='备份失败，自动重试已暂停' if j['kind']=='backup' else '未完成',error=str(error))
 
 def audio_media(ident):
     j=own(ident)
@@ -128,6 +148,8 @@ def status(ident=None):
     d=config();result={'config':d,'jobs':history()}
     if ident:
         assets=project_assets.status(ident);result.update(assets=assets,audioCheck=audio_qc.latest(ident),backups=[])
+        if ident in d['backupFailures']:
+            result['backupWarning']='此工程自动备份因失败暂停。请修复后点击「立即备份当前歌曲」；成功后自动恢复计划。原因：'+d['backupFailures'][ident]['error']
         if d['backupDirectory']:
             try:result['backups']=project_backup.listing(d['backupDirectory'],ident)
             except (ValueError,OSError) as error:result['backupWarning']=str(error)
@@ -156,10 +178,11 @@ def start():
                     for ident in d['backupProjects']:
                         try:
                             snapshots=project_backup.listing(d['backupDirectory'],ident);last=snapshots[0]['created'] if snapshots else 0
-                            if time.time()-last<d['intervalHours']*3600 or time.time()-d['lastScheduled'].get(ident,0)<600:continue
+                            if not backup_due(d,ident,last,time.time()):continue
                             with lifecycle.LOCK,LOCK:
                                 latest=config()
                                 if not latest['backupEnabled'] or ident not in latest['backupProjects'] or latest['backupDirectory']!=d['backupDirectory']:continue
+                                if not backup_due(latest,ident,last,time.time()):continue
                                 submit(ident,{'kind':'backup','scheduled':True});latest['lastScheduled'][ident]=time.time();save_json(CONFIG,latest)
                         except (OSError,ValueError):pass
                 import app_identity

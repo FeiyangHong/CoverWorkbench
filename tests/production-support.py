@@ -51,8 +51,67 @@ def main():
                 assert after['cues']==before['cues'] and after['styles']==before['styles'] and after['audioOffset']==before['audioOffset']
             # Generated preview caches are excluded; referenced outside media is collected.
             (workspace/'Cache').mkdir();(workspace/'Cache/Preview.bin').write_bytes(b'rebuildable')
+            model_cache=workspace/'analysis/whisper_models/snapshots/model';model_cache.mkdir(parents=True)
+            (model_cache/'config.json').write_text('{"cache":true}',encoding='utf8')
             lyric=workspace/'exports/lyrics/Original.lrc';lyric.write_text('[00:01.00]Text',encoding='utf8')
             first=wait(support.submit(ident,{'kind':'backup'}))['result'];assert first['changedFiles']>0
+            original_manifest=Path(first['folder'])/'Manifest.json';manifest_hash=core.sha(original_manifest)
+            assert not any('whisper_models' in name for name in core.read_json(original_manifest)['files'])
+            failure_folder=root/'Failure Task';failure_folder.mkdir()
+            failure_job={'id':'failed-fixture','kind':'backup','scope':'music','project':ident,'folder':str(failure_folder),'cancel':threading.Event()}
+            # A required missing source used to leak an entire completed working copy.
+            real_status=project_assets.status(ident)
+            missing=copy.deepcopy(real_status);missing['assets']['mix']={'path':str(home/'Missing.wav')}
+            with patch.object(project_assets,'status',return_value=missing):
+                try:project_backup.create(failure_job,str(backup))
+                except ValueError as error:assert 'Missing.wav' in str(error)
+                else:raise AssertionError('Missing input accepted')
+            assert not (failure_folder/'Working Copy').exists()
+            # Cancellation after copying has the same cleanup guarantee.
+            real_copy=project_packages.shutil.copy2
+            def cancel_after_copy(source,destination,*a,**kw):
+                result=real_copy(source,destination,*a,**kw);failure_job['cancel'].set();return result
+            with patch.object(project_packages.shutil,'copy2',side_effect=cancel_after_copy):
+                try:project_packages.pack(failure_job)
+                except InterruptedError:pass
+                else:raise AssertionError('Cancellation was ignored')
+            assert not (failure_folder/'Working Copy').exists();failure_job['cancel'].clear()
+            with patch.object(project_backup.shutil,'disk_usage',return_value=type('Disk',(),{'free':0})()):
+                try:project_backup.create(failure_job,str(backup))
+                except ValueError as error:assert '空间' in str(error)
+                else:raise AssertionError('Full backup disk accepted')
+            assert not (failure_folder/'Working Copy').exists()
+            # Failure while publishing must clean only the unfinished destination.
+            lyric.write_text('[00:01.00]Changed for failure test',encoding='utf8')
+            def broken_publish(source,destination,*a,**kw):
+                if any(part.startswith('Preparing Backup ') for part in Path(destination).parts):
+                    Path(destination).write_bytes(b'partial');raise OSError('Synthetic interrupted copy')
+                return real_copy(source,destination,*a,**kw)
+            with patch.object(project_backup.shutil,'copy2',side_effect=broken_publish):
+                try:project_backup.create(failure_job,str(backup))
+                except OSError:pass
+                else:raise AssertionError('Publish failure was ignored')
+            assert not (failure_folder/'Working Copy').exists()
+            assert not list(Path(first['folder']).parent.glob('Preparing Backup *'))
+            assert core.sha(original_manifest)==manifest_hash and core.sha(source)==source_hash
+            lyric.write_text('[00:01.00]Text',encoding='utf8')
+            # Existing folders are never adopted and deleted as temporary work.
+            existing=failure_folder/'Working Copy';existing.mkdir();(existing/'Keep.txt').write_text('keep')
+            try:project_packages.pack(failure_job)
+            except FileExistsError:pass
+            else:raise AssertionError('Existing working copy was overwritten')
+            assert (existing/'Keep.txt').read_text()=='keep'
+            failure_job['request']={'backupDirectory':str(backup)}
+            with patch.object(project_backup,'create',side_effect=ValueError('Missing source')):support.run(failure_job)
+            assert failure_job['status']=='failed' and '暂停' in failure_job['stage']
+            support.configure({'intervalHours':24})
+            assert not support.backup_due(support.config(),ident,0,time.time()+86400*30)
+            with patch.object(project_backup,'create',return_value={'synthetic':True}):support.run(failure_job)
+            assert failure_job['status']=='completed'
+            d=support.config();assert support.backup_due(d,ident,0,time.time())
+            d['lastScheduled'][ident]=time.time()
+            assert not support.backup_due(d,ident,0,time.time()+601)
+            assert support.backup_due(d,ident,0,time.time()+86401)
             second=wait(support.submit(ident,{'kind':'backup'}))['result'];assert second['changedFiles']==0 and second['newBytes']==0,second
             lyric.write_text('[00:01.00]Updated',encoding='utf8')
             third=wait(support.submit(ident,{'kind':'backup'}))['result'];assert third['changedFiles']==1,third

@@ -60,14 +60,15 @@ def create(job,directory):
         folder,context=project_folder(directory,job['project']);folder.mkdir(parents=True,exist_ok=True)
         save_json(folder/'Owner.json',{'project':job['project'],'title':context['title'],'schema':1})
         prior=listing(directory,job['project']);old=snapshot(folder,prior[0]['name'])[1] if prior else {'files':{}}
-        staged=project_packages.pack({**job,'scope':'music','snapshotOnly':True});stage=Path(staged['stage']);manifest=staged['manifest']
-        total=sum(d['bytes'] for d in manifest['files'].values())
-        needed=sum(d['bytes'] for name,d in manifest['files'].items() if old['files'].get(name,{}).get('sha256')!=d['sha256'])
-        if shutil.disk_usage(folder).free<needed+64*1024*1024:raise ValueError('备份盘可用空间不足')
-        number=1
-        while (folder/f'Backup {number:03}').exists() or (folder/f'Preparing Backup {number:03}').exists():number+=1
-        name=f'Backup {number:03}';working=folder/f'Preparing {name}';working.mkdir();files={};changed=0
+        stage=None;working=None
         try:
+            staged=project_packages.pack({**job,'scope':'music','snapshotOnly':True});stage=Path(staged['stage']);manifest=staged['manifest']
+            total=sum(d['bytes'] for d in manifest['files'].values())
+            needed=sum(d['bytes'] for name,d in manifest['files'].items() if old['files'].get(name,{}).get('sha256')!=d['sha256'])
+            if shutil.disk_usage(folder).free<needed+64*1024*1024:raise ValueError('备份盘可用空间不足')
+            number=1
+            while (folder/f'Backup {number:03}').exists() or (folder/f'Preparing Backup {number:03}').exists():number+=1
+            name=f'Backup {number:03}';working=folder/f'Preparing {name}';working.mkdir();files={};changed=0
             for i,(relative,info) in enumerate(manifest['files'].items()):
                 project_tasks.check(job);previous=old['files'].get(relative)
                 if previous and previous['sha256']==info['sha256'] and stored(folder,previous).is_file() and sha(stored(folder,previous))==info['sha256']:files[relative]=previous
@@ -80,8 +81,13 @@ def create(job,directory):
             save_json(working/'Manifest.json',doc);working.rename(folder/name)
             return {'name':name,'folder':str(folder/name),'files':len(files),'changedFiles':changed,'newBytes':doc['newBytes'],'totalBytes':total,'requirements':manifest['requirements'],'warnings':manifest['warnings']}
         finally:
-            if stage.resolve().is_relative_to(Path(job['folder']).resolve()) and stage.exists():shutil.rmtree(stage)
-            # Incomplete copies are intentionally kept as Preparing folders for diagnosis.
+            if stage is not None:project_packages.remove_stage(stage,Path(job['folder']))
+            # A failed, unpublished snapshot is scratch data, not a recovery version.
+            if working is not None and working.exists():
+                if working.parent.resolve()!=folder.resolve() or not re.fullmatch(r'Preparing Backup [0-9]{3,}',working.name) or working.is_symlink() or getattr(working,'is_junction',lambda:False)():
+                    raise ValueError('临时备份目录无效，拒绝清理')
+                shutil.rmtree(working)
+
 
 def verify(job,directory,name):
     folder,_=project_folder(directory,job['project']);path,doc=snapshot(folder,name)
